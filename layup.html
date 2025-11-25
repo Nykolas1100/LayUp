@@ -27,25 +27,26 @@
     </style>
 </head>
 <body>
-    <h1>Language Parser Interface</h1>
+    <h1>Layup Parser</h1>
 
     <label for="codeInput">Enter Code:</label>
-    <textarea id="codeInput">let x = 42;</textarea> 
+    <textarea id="codeInput"></textarea> 
     <button id="parseButton">Parse Code</button>
+    <button id="downloadCsvButton">Download CSV</button>
 
     <hr>
 
     <h2>Output</h2>
     <pre id="output">Enter code and press 'Parse Code' to see the results here.</pre>
 
-    <!-- Load bundled code -->
     <script src="./dist/bundle.js"></script>
 
-    <!-- Wire up the button -->
     <script>
         const parseButton = document.getElementById('parseButton');
+        const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
+        let csv = [];
 
         parseButton.addEventListener('click', () => {
             const code = codeInput.value;
@@ -61,12 +62,33 @@
                         "AST:\n" + JSON.stringify(result.ast, null, 2) +
                         "\n\nOutput:\n" + result.output.toString() +
                         "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
+                    csv = result.output;
                 }
             } catch (e) {
                 outputDiv.textContent = "Exception: " + e.message;
                 console.error(e);
             }
         });
+
+        downloadCSVButton.addEventListener("click", () => {
+            if (!csv || csv.length === 0) {
+                alert("No output to save.");
+                return;
+            }
+
+            const csvContent = csv.join(",") + "\n"; // comma-separated
+            const blob = new Blob([csvContent], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "output.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
     </script>
 </body>
 </html>

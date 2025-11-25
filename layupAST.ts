@@ -10,9 +10,9 @@ export module AST {
         constructor(public key: string, public valueExpr: AST.Expr) {}
 
         evaluate(env: Record<string, AST.Expr>): AST.Expr {
-            const val = this.valueExpr.evaluate(env); // evaluate the value expression
-            env[this.key] = val;                      // store it in the environment
-            return val;                               // optionally return the value
+            const val = this.valueExpr.evaluate(env);
+            env[this.key] = val;
+            return val;
         }
 
         toString() {

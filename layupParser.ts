@@ -27,28 +27,22 @@ const formula = P.seq(P.seq(P.seq(bind)(name))(assign))(value);
 
 const formulaNode = P.appfun(formula)(flattenLetResult);
 
-const grammar = P.appfun(P.seq(formulaNode)(delimeter))(([formula, _ws]) => formula);
+export const grammar = P.many1(P.appfun(P.seq(formulaNode)(P.seq(delimeter)(P.many(P.nl))))(([formula, _ws]) => formula));
 
-// const grammar = P.many1(P.appfun(P.seq(formulaNode)(delimeter))(([formula, _ws]) => formula));
-
-const stream = new CU.CharStream("let num = 10;");
+const stream = new CU.CharStream("let num = 10;let double = 20;");
 const result = grammar(stream);
 const parsed = result.next();
 
-if (parsed.done) {
-    if (parsed.value.tag == "success") {
-        const env: Record<string, AST.Expr> = {};
-        const ast = parsed.value.result as AST.Expr;
-        console.dir(ast, { depth: null });
+if (parsed.done && parsed.value.tag === "success") {
+    const env: Record<string, AST.Expr> = {};
+    const astList = parsed.value.result as AST.Expr[];
 
-        // Run evaluation with environment
-        const output = ast.evaluate(env);
-
-        console.log("Result:", output.toString());
-        console.dir(env, { depth: null });
+    for (const line of astList) {
+        line.evaluate(env);
     }
+
+    console.log(env);
 }
 
-// TO-DO make a web form with input box that calls parser
 // sep/sepby combinator expr, delimeter, ws, nl, ws, expr
 // https://people.cs.nott.ac.uk/pszgmh/monparsing.pdf

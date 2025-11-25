@@ -1,8 +1,9 @@
-"use strict";
 (() => {
+  var __create = Object.create;
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __esm = (fn, res) => function __init() {
     return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
@@ -22,6 +23,14 @@
     }
     return to;
   };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
   // parsecco/src/charstream.ts
@@ -798,7 +807,7 @@
   var AST;
   var init_layupAST = __esm({
     "layupAST.ts"() {
-      ((AST2) => {
+      ((AST3) => {
         class Let {
           constructor(key, valueExpr) {
             this.key = key;
@@ -813,7 +822,7 @@
             return `let ${this.key} = ${this.valueExpr.toString()}`;
           }
         }
-        AST2.Let = Let;
+        AST3.Let = Let;
         class Var {
           constructor(name) {
             this.name = name;
@@ -827,7 +836,7 @@
             return this.name;
           }
         }
-        AST2.Var = Var;
+        AST3.Var = Var;
         class Num {
           constructor(value) {
             this.value = value;
@@ -839,7 +848,7 @@
             return this.value.toString();
           }
         }
-        AST2.Num = Num;
+        AST3.Num = Num;
       })(AST || (AST = {}));
     }
   });
@@ -847,7 +856,9 @@
   // layupParser.js
   var require_layupParser = __commonJS({
     "layupParser.js"(exports) {
+      "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.grammar = void 0;
       var src_1 = (init_src(), __toCommonJS(src_exports));
       var layupAST_1 = (init_layupAST(), __toCommonJS(layupAST_exports));
       function flattenLetResult(result2) {
@@ -868,40 +879,119 @@
       var delimeter = src_1.Primitives.char(";");
       var formula = src_1.Primitives.seq(src_1.Primitives.seq(src_1.Primitives.seq(bind)(name))(assign))(value);
       var formulaNode = src_1.Primitives.appfun(formula)(flattenLetResult);
-      var grammar = src_1.Primitives.appfun(src_1.Primitives.seq(formulaNode)(delimeter))(function(_a) {
+      exports.grammar = src_1.Primitives.many1(src_1.Primitives.appfun(src_1.Primitives.seq(formulaNode)(src_1.Primitives.seq(delimeter)(src_1.Primitives.many(src_1.Primitives.nl))))(function(_a) {
         var formula2 = _a[0], _ws = _a[1];
         return formula2;
-      });
-      var stream = new src_1.CharUtil.CharStream("let num = 10;");
-      var result = grammar(stream);
+      }));
+      var stream = new src_1.CharUtil.CharStream("let num = 10;let double = 20;");
+      var result = (0, exports.grammar)(stream);
       var parsed = result.next();
-      if (parsed.done) {
-        if (parsed.value.tag == "success") {
-          env = {};
-          ast = parsed.value.result;
-          console.dir(ast, { depth: null });
-          output = ast.evaluate(env);
-          console.log("Result:", output.toString());
-          console.dir(env, { depth: null });
+      if (parsed.done && parsed.value.tag === "success") {
+        env = {};
+        astList = parsed.value.result;
+        for (_i = 0, astList_1 = astList; _i < astList_1.length; _i++) {
+          line = astList_1[_i];
+          line.evaluate(env);
         }
+        console.log(env);
       }
       var env;
-      var ast;
-      var output;
-      window.parseCode = function(codeString) {
-        const stream2 = new src_1.CharUtil.CharStream(codeString);
-        const result2 = grammar(stream2);
-        const parsed2 = result2.next();
-        if (parsed2.done && parsed2.value.tag === "success") {
-          const env2 = {};
-          const ast2 = parsed2.value.result;
-          const output2 = ast2.evaluate(env2);
-          return { ast: ast2, output: output2, env: env2 };
-        } else {
-          return { error: "Parsing failed", details: parsed2.value };
-        }
-      };
+      var astList;
+      var line;
+      var _i;
+      var astList_1;
     }
   });
-  require_layupParser();
+
+  // layupAST.js
+  var require_layupAST = __commonJS({
+    "layupAST.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.AST = void 0;
+      var AST3;
+      (function(AST4) {
+        var Let = (
+          /** @class */
+          (function() {
+            function Let2(key, valueExpr) {
+              this.key = key;
+              this.valueExpr = valueExpr;
+            }
+            Let2.prototype.evaluate = function(env) {
+              var val = this.valueExpr.evaluate(env);
+              env[this.key] = val;
+              return val;
+            };
+            Let2.prototype.toString = function() {
+              return "let ".concat(this.key, " = ").concat(this.valueExpr.toString());
+            };
+            return Let2;
+          })()
+        );
+        AST4.Let = Let;
+        var Var = (
+          /** @class */
+          (function() {
+            function Var2(name) {
+              this.name = name;
+            }
+            Var2.prototype.evaluate = function(env) {
+              var v = env[this.name];
+              if (!v)
+                throw new Error("Unbound variable: " + this.name);
+              return v;
+            };
+            Var2.prototype.toString = function() {
+              return this.name;
+            };
+            return Var2;
+          })()
+        );
+        AST4.Var = Var;
+        var Num = (
+          /** @class */
+          (function() {
+            function Num2(value) {
+              this.value = value;
+            }
+            Num2.prototype.evaluate = function(_) {
+              return this;
+            };
+            Num2.prototype.toString = function() {
+              return this.value.toString();
+            };
+            return Num2;
+          })()
+        );
+        AST4.Num = Num;
+      })(AST3 || (exports.AST = AST3 = {}));
+    }
+  });
+
+  // webParser.js
+  var import_layupParser = __toESM(require_layupParser());
+  init_src();
+  var import_layupAST = __toESM(require_layupAST());
+  function parseCode(code) {
+    try {
+      const stream = new CharUtil.CharStream(code);
+      const result = (0, import_layupParser.grammar)(stream);
+      const parsed = result.next();
+      if (parsed.done && parsed.value.tag === "success") {
+        const env = {};
+        const astList = parsed.value.result;
+        const outputs = [];
+        for (const line of astList) {
+          const val = line.evaluate(env);
+          outputs.push(val);
+        }
+        return { ast: astList, env, output: outputs };
+      }
+      return { error: "Parse failed", details: parsed };
+    } catch (e) {
+      return { error: e.message, details: e.stack };
+    }
+  }
+  window.parseCode = parseCode;
 })();
