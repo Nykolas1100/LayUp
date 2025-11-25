@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web-Based Layup Parser</title>
+    <style>
+        textarea { 
+            width: 100%; 
+            height: 150px; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            font-family: monospace; 
+        }
+        pre { 
+            background-color: #eee; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            white-space: pre-wrap; 
+            word-wrap: break-word; 
+        }
+        button {
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Language Parser Interface</h1>
+
+    <label for="codeInput">Enter Code:</label>
+    <textarea id="codeInput">let x = 42;</textarea> 
+    <button id="parseButton">Parse Code</button>
+
+    <hr>
+
+    <h2>Output</h2>
+    <pre id="output">Enter code and press 'Parse Code' to see the results here.</pre>
+
+    <!-- Load bundled code -->
+    <script src="./dist/bundle.js"></script>
+
+    <!-- Wire up the button -->
+    <script>
+        const parseButton = document.getElementById('parseButton');
+        const codeInput = document.getElementById('codeInput');
+        const outputDiv = document.getElementById('output');
+
+        parseButton.addEventListener('click', () => {
+            const code = codeInput.value;
+
+            try {
+                const result = window.parseCode(code);
+
+                if (result.error) {
+                    outputDiv.textContent = "Error: " + result.error;
+                    console.error(result.details);
+                } else {
+                    outputDiv.textContent =
+                        "AST:\n" + JSON.stringify(result.ast, null, 2) +
+                        "\n\nOutput:\n" + result.output.toString() +
+                        "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
+                }
+            } catch (e) {
+                outputDiv.textContent = "Exception: " + e.message;
+                console.error(e);
+            }
+        });
+    </script>
+</body>
+</html>

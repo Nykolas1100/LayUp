@@ -19,17 +19,19 @@ const name = P.appfun(
 
 const assign = P.appfun(P.seq(P.char('='))(P.ws1))(([eq, _ws]) => eq);
 
-const value = P.integer
+const value = P.integer;
 
-const delimeter = P.char(';')
+const delimeter = P.char(';');
 
-const formula = P.seq(P.seq(P.seq(bind)(name))(assign))(value)
+const formula = P.seq(P.seq(P.seq(bind)(name))(assign))(value);
 
-const formulaNode = P.appfun(formula) (flattenLetResult);
+const formulaNode = P.appfun(formula)(flattenLetResult);
 
 const grammar = P.appfun(P.seq(formulaNode)(delimeter))(([formula, _ws]) => formula);
 
-const stream = new CU.CharStream("let x = 10;");
+// const grammar = P.many1(P.appfun(P.seq(formulaNode)(delimeter))(([formula, _ws]) => formula));
+
+const stream = new CU.CharStream("let num = 10;");
 const result = grammar(stream);
 const parsed = result.next();
 
@@ -46,3 +48,7 @@ if (parsed.done) {
         console.dir(env, { depth: null });
     }
 }
+
+// TO-DO make a web form with input box that calls parser
+// sep/sepby combinator expr, delimeter, ws, nl, ws, expr
+// https://people.cs.nott.ac.uk/pszgmh/monparsing.pdf
