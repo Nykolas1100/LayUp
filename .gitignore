@@ -1,0 +1,9 @@
+# Folders
+paraformula/
+parsecco/
+.venv/
+
+# Files
+letter_frequency.csv
+tutorial.ts
+tutorial.js

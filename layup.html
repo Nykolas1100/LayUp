@@ -5,13 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web-Based Layup Parser</title>
     <style>
-        textarea { 
-            width: 100%; 
-            height: 150px; 
-            padding: 10px; 
-            box-sizing: border-box; 
-            font-family: monospace; 
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: sans-serif;
         }
+
+        .split {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pane {
+            flex: 1;
+            overflow: auto;
+            min-width: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .split::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;          /* middle of the container */
+            width: 2px;         /* thickness of the divider */
+            background-color: #ccc;  /* color of the divider */
+            transform: translateX(-50%); /* center it exactly at 50% */
+            pointer-events: none;      /* allows clicks to pass through */
+        }
+
+        .left {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .right {
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        #output {
+            flex: 1 1 auto;
+            overflow: auto;      /* scroll if too tall */
+        }
+
         pre { 
             background-color: #eee; 
             padding: 10px; 
@@ -19,34 +63,56 @@
             white-space: pre-wrap; 
             word-wrap: break-word; 
         }
+
         button {
             padding: 10px 15px;
             margin-top: 10px;
             font-size: 16px;
         }
+
+        #spreadsheet {
+            flex: 1 1 auto;
+        }
+
     </style>
+    
+<link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+
 </head>
 <body>
     <h1>Layup Parser</h1>
 
-    <label for="codeInput">Enter Code:</label>
-    <textarea id="codeInput"></textarea> 
-    <button id="parseButton">Parse Code</button>
-    <button id="downloadCsvButton">Download CSV</button>
+    <div class="split">
+        <!-- LEFT: Code -->
+        <div class="pane left">
+            <label for="codeInput">Enter Code:</label>
+            <textarea id="codeInput"></textarea>
 
-    <hr>
+            <button id="parseButton">Parse Code</button>
+            <button id="viewCsvButton">View CSV</button>
+            <button id="downloadCsvButton">Download CSV</button>
 
-    <h2>Output</h2>
-    <pre id="output">Enter code and press 'Parse Code' to see the results here.</pre>
+            <h2>Output</h2>
+            <pre id="output">Enter code and press 'Parse Code' to see the results here.</pre>
+        </div>
+
+        <!-- RIGHT: CSV Viewer -->
+        <div class="pane right">
+            <h2>CSV Output</h2>
+            <div id="spreadsheet"></div>
+        </div>
+    </div>
 
     <script src="./dist/bundle.js"></script>
-
     <script>
         const parseButton = document.getElementById('parseButton');
+        const viewCSVButton = document.getElementById('viewCsvButton');
         const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
         let csv = [];
+        let table;
 
         parseButton.addEventListener('click', () => {
             const code = codeInput.value;
@@ -57,16 +123,64 @@
                 if (result.error) {
                     outputDiv.textContent = "Error: " + result.error;
                     console.error(result.details);
+                    csv = [];
+                    window.lastAST = [];
                 } else {
                     outputDiv.textContent =
                         "AST:\n" + JSON.stringify(result.ast, null, 2) +
                         "\n\nOutput:\n" + result.output.toString() +
                         "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
                     csv = result.output;
+                    window.lastAST = result.ast;
                 }
             } catch (e) {
                 outputDiv.textContent = "Exception: " + e.message;
                 console.error(e);
+                csv = [];
+                window.lastAST = [];
+            }
+        });
+
+        function csvArrayToObjects(csvArray) {
+            if (csvArray.length === 0) return [];
+            const headers = csvArray[0];
+            return csvArray.slice(1).map(row => {
+                const obj = {};
+                row.forEach((val, i) => obj[headers[i] ?? `col${i+1}`] = val);
+                return obj;
+            });
+        }
+
+        function parserOutputToTable(output, ast) {
+            if (!output || output.length === 0) return [];
+
+            // Map each AST node to a row with key/value
+            const table = ast.map((node, i) => ({
+                Key: node.key ?? `row${i+1}`,
+                Value: output[i] ?? ""
+            }));
+
+            return table;
+        }
+
+        viewCSVButton.addEventListener("click", () => {
+            if (!csv || csv.length === 0) return alert("No output to display.");
+
+            const data = parserOutputToTable(csv, window.lastAST); // save AST after parsing
+            const columns = [
+                { title: "Key", field: "Key" },
+                { title: "Value", field: "Value" }
+            ];
+
+            if (!table) {
+                table = new Tabulator("#spreadsheet", {
+                    data,
+                    columns,
+                    layout: "fitData"
+                });
+            } else {
+                table.setData(data);
+                table.setColumns(columns);
             }
         });
 
@@ -76,7 +190,15 @@
                 return;
             }
 
-            const csvContent = csv.join(",") + "\n"; // comma-separated
+            // Map parser output + AST to table rows
+            const tableData = parserOutputToTable(csv, window.lastAST);
+
+            // Build CSV content with header
+            const headers = ["Key", "Value"];
+            const rows = tableData.map(row => [row.Key, row.Value]);
+            const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+
+            // Trigger download
             const blob = new Blob([csvContent], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
 
@@ -88,6 +210,25 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
+
+        // downloadCSVButton.addEventListener("click", () => {
+        //     if (!csv || csv.length === 0) {
+        //         alert("No output to save.");
+        //         return;
+        //     }
+
+        //     const csvContent = csv.join(",") + "\n"; // comma separated
+        //     const blob = new Blob([csvContent], { type: "text/csv" });
+        //     const url = URL.createObjectURL(blob);
+
+        //     const a = document.createElement("a");
+        //     a.href = url;
+        //     a.download = "output.csv";
+        //     document.body.appendChild(a);
+        //     a.click();
+        //     document.body.removeChild(a);
+        //     URL.revokeObjectURL(url);
+        // });
 
     </script>
 </body>

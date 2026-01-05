@@ -1,51 +1,45 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AST = void 0;
-var AST;
+export var AST;
 (function (AST) {
-    var Let = /** @class */ (function () {
-        function Let(key, valueExpr) {
+    class Let {
+        constructor(key, valueExpr) {
             this.key = key;
             this.valueExpr = valueExpr;
         }
-        Let.prototype.evaluate = function (env) {
-            var val = this.valueExpr.evaluate(env); // evaluate the value expression
-            env[this.key] = val; // store it in the environment
-            return val; // optionally return the value
-        };
-        Let.prototype.toString = function () {
-            return "let ".concat(this.key, " = ").concat(this.valueExpr.toString());
-        };
-        return Let;
-    }());
+        evaluate(env) {
+            const val = this.valueExpr.evaluate(env);
+            env[this.key] = val;
+            return val;
+        }
+        toString() {
+            return `let ${this.key} = ${this.valueExpr.toString()}`;
+        }
+    }
     AST.Let = Let;
-    var Var = /** @class */ (function () {
-        function Var(name) {
+    class Var {
+        constructor(name) {
             this.name = name;
         }
-        Var.prototype.evaluate = function (env) {
-            var v = env[this.name];
+        evaluate(env) {
+            const v = env[this.name];
             if (!v)
                 throw new Error("Unbound variable: " + this.name);
             return v;
-        };
-        Var.prototype.toString = function () {
+        }
+        toString() {
             return this.name;
-        };
-        return Var;
-    }());
+        }
+    }
     AST.Var = Var;
-    var Num = /** @class */ (function () {
-        function Num(value) {
+    class Num {
+        constructor(value) {
             this.value = value;
         }
-        Num.prototype.evaluate = function (_) {
+        evaluate(_) {
             return this;
-        };
-        Num.prototype.toString = function () {
+        }
+        toString() {
             return this.value.toString();
-        };
-        return Num;
-    }());
+        }
+    }
     AST.Num = Num;
-})(AST || (exports.AST = AST = {}));
+})(AST || (AST = {}));
