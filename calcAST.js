@@ -1,70 +1,62 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AST = void 0;
-var AST;
+export var AST;
 (function (AST) {
-    var Num = /** @class */ (function () {
-        function Num(value) {
+    class Num {
+        constructor(value) {
             this.value = value;
         }
-        Num.prototype.evaluate = function () { return this; };
-        Num.prototype.toString = function () { return this.value.toString(); };
-        return Num;
-    }());
+        evaluate() { return this; }
+        toString() { return this.value.toString(); }
+    }
     AST.Num = Num;
-    var Bool = /** @class */ (function () {
-        function Bool(value) {
+    class Bool {
+        constructor(value) {
             this.value = value;
         }
-        Bool.prototype.evaluate = function () { return this; };
-        Bool.prototype.toString = function () { return this.value.toString(); };
-        return Bool;
-    }());
+        evaluate() { return this; }
+        toString() { return this.value.toString(); }
+    }
     AST.Bool = Bool;
-    var Plus = /** @class */ (function () {
-        function Plus(left, right) {
+    class Plus {
+        constructor(left, right) {
             this.left = left;
             this.right = right;
         }
-        Plus.prototype.evaluate = function () {
-            var l = this.left.evaluate();
-            var r = this.right.evaluate();
+        evaluate() {
+            const l = this.left.evaluate();
+            const r = this.right.evaluate();
             return new Num(l.value + r.value);
-        };
-        Plus.prototype.toString = function () { return "(".concat(this.left.toString(), " + ").concat(this.right.toString(), ")"); };
-        return Plus;
-    }());
+        }
+        toString() { return `(${this.left.toString()} + ${this.right.toString()})`; }
+    }
     AST.Plus = Plus;
-    var Minus = /** @class */ (function () {
-        function Minus(left, right) {
+    class Minus {
+        constructor(left, right) {
             this.left = left;
             this.right = right;
         }
-        Minus.prototype.evaluate = function () {
-            var l = this.left.evaluate();
-            var r = this.right.evaluate();
+        evaluate() {
+            const l = this.left.evaluate();
+            const r = this.right.evaluate();
             return new Num(l.value - r.value);
-        };
-        Minus.prototype.toString = function () { return "(".concat(this.left.toString(), " - ").concat(this.right.toString(), ")"); };
-        return Minus;
-    }());
+        }
+        toString() { return `(${this.left.toString()} - ${this.right.toString()})`; }
+    }
     AST.Minus = Minus;
-    var Equal = /** @class */ (function () {
-        function Equal(left, right) {
+    class Equal {
+        constructor(left, right) {
             this.left = left;
             this.right = right;
         }
-        Equal.prototype.evaluate = function () {
-            var l = this.left.evaluate();
-            var r = this.right.evaluate();
+        evaluate() {
+            const l = this.left.evaluate();
+            const r = this.right.evaluate();
             if (l.value == r.value) {
                 return new Num(r.value);
             }
             return new Bool(false);
-        };
-        Equal.prototype.toString = function () { return "(".concat(this.left.toString(), " = ").concat(this.right.toString(), ")"); };
-        return Equal;
-    }());
+        }
+        toString() { return `(${this.left.toString()} = ${this.right.toString()})`; }
+    }
     AST.Equal = Equal;
     function combining(left, middle, right) {
         switch (middle) {
@@ -75,8 +67,8 @@ var AST;
             case "=":
                 return new Equal(left, right);
             default:
-                throw new Error("Unknown operator: ".concat(middle));
+                throw new Error(`Unknown operator: ${middle}`);
         }
     }
     AST.combining = combining;
-})(AST || (exports.AST = AST = {}));
+})(AST || (AST = {}));

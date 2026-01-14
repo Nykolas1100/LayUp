@@ -48,12 +48,12 @@
        * the current CharStream is returned.
        * @param num
        */
-      peek(num) {
-        if (this.startpos + num >= this.endpos) {
+      peek(num2) {
+        if (this.startpos + num2 >= this.endpos) {
           return this;
         } else {
-          const newHasEOF = this.startpos + num == this.endpos && this.hasEOF;
-          return new CharStream2(this.input, this.startpos, this.startpos + num, newHasEOF);
+          const newHasEOF = this.startpos + num2 == this.endpos && this.hasEOF;
+          return new CharStream2(this.input, this.startpos, this.startpos + num2, newHasEOF);
         }
       }
       /**
@@ -102,11 +102,11 @@
        * seeking num characters from the current position.
        * @param num
        */
-      seek(num) {
-        if (this.startpos + num > this.endpos) {
+      seek(num2) {
+        if (this.startpos + num2 > this.endpos) {
           return new CharStream2(this.input, this.endpos, this.endpos, this.hasEOF);
         } else {
-          return new CharStream2(this.input, this.startpos + num, this.endpos, this.hasEOF);
+          return new CharStream2(this.input, this.startpos + num2, this.endpos, this.hasEOF);
         }
       }
       /**
@@ -641,8 +641,8 @@
       const idx = searchForward(failurePos - 1);
       return idx === -1 ? rightIndex : idx;
     }
-    function leftPad(s, padStr, num) {
-      return num > 0 ? leftPad(padStr + s, padStr, num - 1) : s;
+    function leftPad(s, padStr, num2) {
+      return num2 > 0 ? leftPad(padStr + s, padStr, num2 - 1) : s;
     }
     function diagnosticMessage(fail2, windowSz) {
       const failurePos = fail2.error_pos;
@@ -765,7 +765,7 @@
       evaluate(env) {
         const v = env[this.name];
         if (!v) throw new Error("Unbound variable: " + this.name);
-        return v;
+        return v.evaluate(env);
       }
       toString() {
         return this.name;
@@ -784,18 +784,100 @@
       }
     }
     AST3.Num = Num;
+    class Plus {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value + r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} + ${this.right.toString()})`;
+      }
+    }
+    AST3.Plus = Plus;
+    class Minus {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value - r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} - ${this.right.toString()})`;
+      }
+    }
+    AST3.Minus = Minus;
+    class Times {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value * r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} * ${this.right.toString()})`;
+      }
+    }
+    AST3.Times = Times;
+    class Div {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value / r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} / ${this.right.toString()})`;
+      }
+    }
+    AST3.Div = Div;
+    function combining(left, middle, right) {
+      switch (middle.toString()) {
+        case "+":
+          return new Plus(left, right);
+        case "-":
+          return new Minus(left, right);
+        case "*":
+          return new Times(left, right);
+        case "/":
+          return new Div(left, right);
+        default:
+          throw new Error(`Unknown operator: ${middle}`);
+      }
+    }
+    AST3.combining = combining;
   })(AST || (AST = {}));
 
   // layupParser.js
   function flattenLetResult(result2) {
     const varName = result2[0][0][1];
-    const val = result2[1];
-    return new AST.Let(varName, new AST.Num(val));
+    const valueExpr = result2[1];
+    return new AST.Let(varName, valueExpr);
   }
   var bind = Primitives.seq(Primitives.str("let"))(Primitives.ws1);
   var name = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(Primitives.ws1))(([letters, _ws]) => letters.join(""));
   var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(Primitives.ws1))(([eq, _ws]) => eq);
-  var value = Primitives.integer;
+  var num = Primitives.appfun(Primitives.integer)((n) => new AST.Num(n));
+  var addition = Primitives.char("+");
+  var subtraction = Primitives.char("-");
+  var multiplication = Primitives.char("*");
+  var division = Primitives.char("/");
+  var op = Primitives.appfun(Primitives.seq(Primitives.choice(addition)(Primitives.choice(subtraction)(Primitives.choice(multiplication)(division))))(Primitives.ws))(([op2, _ws]) => op2);
+  var expr = Primitives.appfun(Primitives.seq(num)(Primitives.many(Primitives.seq(op)(num))))(([head, rest]) => rest.reduce((acc, [operator, right]) => AST.combining(acc, operator, right), head));
+  var value = expr;
   var delimeter = Primitives.char(";");
   var formula = Primitives.seq(Primitives.seq(Primitives.seq(bind)(name))(assign))(value);
   var formulaNode = Primitives.appfun(formula)(flattenLetResult);
@@ -857,6 +939,81 @@
       }
     }
     AST3.Num = Num;
+    class Plus {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value + r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} + ${this.right.toString()})`;
+      }
+    }
+    AST3.Plus = Plus;
+    class Minus {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value - r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} - ${this.right.toString()})`;
+      }
+    }
+    AST3.Minus = Minus;
+    class Times {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value * r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} * ${this.right.toString()})`;
+      }
+    }
+    AST3.Times = Times;
+    class Div {
+      constructor(left, right) {
+        this.left = left;
+        this.right = right;
+      }
+      evaluate(env) {
+        const l = this.left.evaluate(env);
+        const r = this.right.evaluate(env);
+        return new Num(l.value / r.value);
+      }
+      toString() {
+        return `(${this.left.toString()} / ${this.right.toString()})`;
+      }
+    }
+    AST3.Div = Div;
+    function combining(left, middle, right) {
+      switch (middle) {
+        case "+":
+          return new Plus(left, right);
+        case "-":
+          return new Minus(left, right);
+        case "*":
+          return new Times(left, right);
+        case "/":
+          return new Div(left, right);
+        default:
+          throw new Error(`Unknown operator: ${middle}`);
+      }
+    }
+    AST3.combining = combining;
   })(AST2 || (AST2 = {}));
 
   // webParser.js

@@ -1,28 +1,43 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-var src_1 = require("./parsecco/src");
-var calcAST_1 = require("./calcAST");
-var addition = src_1.Primitives.char('+');
-var subtraction = src_1.Primitives.char('-');
-var equation = src_1.Primitives.appfun(src_1.Primitives.seq(src_1.Primitives.integer)(src_1.Primitives.many(src_1.Primitives.choice(src_1.Primitives.seq(addition)(src_1.Primitives.integer))(src_1.Primitives.seq(subtraction)(src_1.Primitives.integer)))))(function (_a) {
-    var first = _a[0], rest = _a[1];
-    var expr = new calcAST_1.AST.Num(first);
-    for (var _i = 0, rest_1 = rest; _i < rest_1.length; _i++) {
-        var _b = rest_1[_i], opToken = _b[0], val = _b[1];
-        var op = opToken.toString();
-        expr = calcAST_1.AST.combining(expr, op, new calcAST_1.AST.Num(val));
-    }
-    return expr;
-});
-// const equation = P.seq(P.integer)(P.many(P.choice(P.seq(addition)(P.integer)) (P.seq(subtraction) (P.integer))));
-var grammar = src_1.Primitives.left(equation)(src_1.Primitives.eof);
-var stream = new src_1.CharUtil.CharStream("3-2+1");
-var result = grammar(stream);
-var parsed = result.next();
+import { Primitives as P, CharUtil as CU } from './parsecco/src';
+import { AST } from './calcAST';
+export const num = P.appfun(P.integer)((n) => new AST.Num(n));
+const addition = P.char('+');
+const subtraction = P.char('-');
+const multiplication = P.char('x');
+const division = P.char('/');
+const op = P.choice(addition)(P.choice(subtraction)(P.choice(multiplication)(division)));
+export const expr = P.appfun(P.seq(num)(P.many(P.seq(op)(num))))(([head, rest]) => rest.reduce((acc, [operator, right]) => AST.combining(acc, operator, right), head));
+const grammar = P.left(expr)(P.eof);
+const stream = new CU.CharStream("3-2+1");
+const result = grammar(stream);
+const parsed = result.next();
 if (parsed.done) {
-    var ast = parsed.value.result; // This is your full Expr AST
-    console.dir(ast, { depth: null }); // Optional: inspect the tree
-    // Run evaluation here
-    var output = ast.evaluate(); // <-- CALL evaluate()
-    console.log("Result:", output.toString());
+    if (parsed.value.tag == "success") {
+        const ast = parsed.value.result;
+        console.dir(ast, { depth: null });
+        // Run evaluation here
+        const output = ast.evaluate();
+        console.log("Result:", output.toString());
+    }
 }
+// const expression =
+//   P.appfun(
+//     P.seq(P.integer)(
+//       P.many(
+//         P.choice(
+//           P.seq(addition)(P.integer))
+//           (P.choice(
+//             P.seq(subtraction)(P.integer))
+//             (P.seq(multiplication)(P.integer))
+//         )
+//       )
+//     ))
+//     (([first, rest]) => {
+//       let expr: AST.Expr = new AST.Num(first);
+//       for (const [opToken, val] of rest) {
+//             const op = opToken.toString();
+//             expr = AST.combining(expr, op, new AST.Num(val));
+//         }
+//       return expr;
+//     }
+//   );

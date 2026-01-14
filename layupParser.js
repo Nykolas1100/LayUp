@@ -1,17 +1,23 @@
 import { Primitives as P, CharUtil as CU } from './parsecco/src';
 import { AST } from './layupAST';
 function flattenLetResult(result) {
-    // result = [[[[bindResult, nameResult], assignResult], value]]
-    const varName = result[0][0][1]; // access nameResult
-    const val = result[1];
-    return new AST.Let(varName, new AST.Num(val));
+    const varName = result[0][0][1];
+    const valueExpr = result[1];
+    return new AST.Let(varName, valueExpr);
 }
 // Parse 'let'
 const bind = P.seq(P.str("let"))(P.ws1);
 // Parse variable name
 const name = P.appfun(P.seq(P.many1(P.letter))(P.ws1))(([letters, _ws]) => letters.join(''));
 const assign = P.appfun(P.seq(P.char('='))(P.ws1))(([eq, _ws]) => eq);
-const value = P.integer;
+const num = P.appfun(P.integer)((n) => new AST.Num(n));
+const addition = P.char('+');
+const subtraction = P.char('-');
+const multiplication = P.char('*');
+const division = P.char('/');
+const op = P.appfun(P.seq(P.choice(addition)(P.choice(subtraction)(P.choice(multiplication)(division))))(P.ws))(([op, _ws]) => op);
+export const expr = P.appfun(P.seq(num)(P.many(P.seq(op)(num))))(([head, rest]) => rest.reduce((acc, [operator, right]) => AST.combining(acc, operator, right), head));
+const value = expr;
 const delimeter = P.char(';');
 const formula = P.seq(P.seq(P.seq(bind)(name))(assign))(value);
 const formulaNode = P.appfun(formula)(flattenLetResult);

@@ -42,4 +42,79 @@ export var AST;
         }
     }
     AST.Num = Num;
+    class Plus {
+        constructor(left, right) {
+            this.left = left;
+            this.right = right;
+        }
+        evaluate(env) {
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+            return new Num(l.value + r.value);
+        }
+        toString() {
+            return `(${this.left.toString()} + ${this.right.toString()})`;
+        }
+    }
+    AST.Plus = Plus;
+    class Minus {
+        constructor(left, right) {
+            this.left = left;
+            this.right = right;
+        }
+        evaluate(env) {
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+            return new Num(l.value - r.value);
+        }
+        toString() {
+            return `(${this.left.toString()} - ${this.right.toString()})`;
+        }
+    }
+    AST.Minus = Minus;
+    class Times {
+        constructor(left, right) {
+            this.left = left;
+            this.right = right;
+        }
+        evaluate(env) {
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+            return new Num(l.value * r.value);
+        }
+        toString() {
+            return `(${this.left.toString()} * ${this.right.toString()})`;
+        }
+    }
+    AST.Times = Times;
+    class Div {
+        constructor(left, right) {
+            this.left = left;
+            this.right = right;
+        }
+        evaluate(env) {
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+            return new Num(l.value / r.value);
+        }
+        toString() {
+            return `(${this.left.toString()} / ${this.right.toString()})`;
+        }
+    }
+    AST.Div = Div;
+    function combining(left, middle, right) {
+        switch (middle) {
+            case "+":
+                return new Plus(left, right);
+            case "-":
+                return new Minus(left, right);
+            case "*":
+                return new Times(left, right);
+            case "/":
+                return new Div(left, right);
+            default:
+                throw new Error(`Unknown operator: ${middle}`);
+        }
+    }
+    AST.combining = combining;
 })(AST || (AST = {}));
