@@ -6,7 +6,9 @@ export var AST;
             this.valueExpr = valueExpr;
         }
         evaluate(env) {
+            // Evaluate the RHS (e.g., Var("x") becomes Num(1))
             const val = this.valueExpr.evaluate(env);
+            // Store the concrete value in the environment
             env[this.key] = val;
             return val;
         }
@@ -15,6 +17,18 @@ export var AST;
         }
     }
     AST.Let = Let;
+    class Array {
+        constructor(value) {
+            this.value = value;
+        }
+        evaluate(env) {
+            return new Array(this.value.map(e => e.evaluate(env)));
+        }
+        toString() {
+            return `[${this.value.join(", ")}]`;
+        }
+    }
+    AST.Array = Array;
     class Var {
         constructor(name) {
             this.name = name;
@@ -23,7 +37,7 @@ export var AST;
             const v = env[this.name];
             if (!v)
                 throw new Error("Unbound variable: " + this.name);
-            return v;
+            return v.evaluate(env);
         }
         toString() {
             return this.name;
@@ -103,7 +117,7 @@ export var AST;
     }
     AST.Div = Div;
     function combining(left, middle, right) {
-        switch (middle) {
+        switch (middle.toString()) {
             case "+":
                 return new Plus(left, right);
             case "-":

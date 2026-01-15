@@ -48,12 +48,12 @@
        * the current CharStream is returned.
        * @param num
        */
-      peek(num2) {
-        if (this.startpos + num2 >= this.endpos) {
+      peek(num) {
+        if (this.startpos + num >= this.endpos) {
           return this;
         } else {
-          const newHasEOF = this.startpos + num2 == this.endpos && this.hasEOF;
-          return new CharStream2(this.input, this.startpos, this.startpos + num2, newHasEOF);
+          const newHasEOF = this.startpos + num == this.endpos && this.hasEOF;
+          return new CharStream2(this.input, this.startpos, this.startpos + num, newHasEOF);
         }
       }
       /**
@@ -102,11 +102,11 @@
        * seeking num characters from the current position.
        * @param num
        */
-      seek(num2) {
-        if (this.startpos + num2 > this.endpos) {
+      seek(num) {
+        if (this.startpos + num > this.endpos) {
           return new CharStream2(this.input, this.endpos, this.endpos, this.hasEOF);
         } else {
-          return new CharStream2(this.input, this.startpos + num2, this.endpos, this.hasEOF);
+          return new CharStream2(this.input, this.startpos + num, this.endpos, this.hasEOF);
         }
       }
       /**
@@ -313,7 +313,7 @@
         return new Success(remaining, res);
       }
     };
-    function bind2(p) {
+    function bind(p) {
       return function(f) {
         return function* (istream) {
           const r = yield* p(istream);
@@ -333,15 +333,15 @@
         };
       };
     }
-    Primitives2.bind = bind2;
+    Primitives2.bind = bind;
     function delay(p) {
       return () => p;
     }
     Primitives2.delay = delay;
     function seq(p) {
       return (q) => {
-        return bind2(p)((t) => {
-          return bind2(q)((u) => {
+        return bind(p)((t) => {
+          return bind(q)((u) => {
             return result2([t, u]);
           });
         });
@@ -356,7 +356,7 @@
           return new Failure(istream, istream.startpos - 1);
         };
       };
-      return bind2(Primitives2.item)(f);
+      return bind(Primitives2.item)(f);
     }
     Primitives2.sat = sat;
     function satClass(char_class) {
@@ -365,7 +365,7 @@
           return new Failure(istream, istream.startpos - 1);
         };
       };
-      return bind2(Primitives2.item)(f);
+      return bind(Primitives2.item)(f);
     }
     Primitives2.satClass = satClass;
     function char(c) {
@@ -473,8 +473,8 @@
     function pipe2(p) {
       return (q) => {
         return (f) => {
-          return bind2(p)((t) => {
-            return bind2(q)((u) => {
+          return bind(p)((t) => {
+            return bind(q)((u) => {
               return result2(f(t, u));
             });
           });
@@ -558,7 +558,7 @@
     function fresult(p) {
       return (x) => {
         return (istream) => {
-          return bind2(p)((_t) => result2(x))(istream);
+          return bind(p)((_t) => result2(x))(istream);
         };
       };
     }
@@ -566,7 +566,7 @@
     function left(p) {
       return (q) => {
         return (istream) => {
-          return bind2(p)((t) => fresult(q)(t))(istream);
+          return bind(p)((t) => fresult(q)(t))(istream);
         };
       };
     }
@@ -574,7 +574,7 @@
     function right(p) {
       return (q) => {
         return (istream) => {
-          return bind2(p)((_) => q)(istream);
+          return bind(p)((_) => q)(istream);
         };
       };
     }
@@ -641,8 +641,8 @@
       const idx = searchForward(failurePos - 1);
       return idx === -1 ? rightIndex : idx;
     }
-    function leftPad(s, padStr, num2) {
-      return num2 > 0 ? leftPad(padStr + s, padStr, num2 - 1) : s;
+    function leftPad(s, padStr, num) {
+      return num > 0 ? leftPad(padStr + s, padStr, num - 1) : s;
     }
     function diagnosticMessage(fail2, windowSz) {
       const failurePos = fail2.error_pos;
@@ -758,9 +758,23 @@
       }
     }
     AST3.Let = Let;
+    class Array {
+      constructor(value) {
+        this.value = value;
+      }
+      evaluate(env) {
+        return new Array(
+          this.value.map((e) => e.evaluate(env))
+        );
+      }
+      toString() {
+        return `[${this.value.join(", ")}]`;
+      }
+    }
+    AST3.Array = Array;
     class Var {
-      constructor(name2) {
-        this.name = name2;
+      constructor(name) {
+        this.name = name;
       }
       evaluate(env) {
         const v = env[this.name];
@@ -773,8 +787,8 @@
     }
     AST3.Var = Var;
     class Num {
-      constructor(value2) {
-        this.value = value2;
+      constructor(value) {
+        this.value = value;
       }
       evaluate(_) {
         return this;
@@ -844,8 +858,8 @@
       }
     }
     AST3.Div = Div;
-    function combining(left, middle, right) {
-      switch (middle.toString()) {
+    function combining(left, middle2, right) {
+      switch (middle2.toString()) {
         case "+":
           return new Plus(left, right);
         case "-":
@@ -855,34 +869,32 @@
         case "/":
           return new Div(left, right);
         default:
-          throw new Error(`Unknown operator: ${middle}`);
+          throw new Error(`Unknown operator: ${middle2}`);
       }
     }
     AST3.combining = combining;
   })(AST || (AST = {}));
 
   // layupParser.js
-  function flattenLetResult(result2) {
-    const varName = result2[0][0][1];
-    const valueExpr = result2[1];
-    return new AST.Let(varName, valueExpr);
-  }
-  var bind = Primitives.seq(Primitives.str("let"))(Primitives.ws1);
-  var name = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(Primitives.ws1))(([letters, _ws]) => letters.join(""));
-  var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(Primitives.ws1))(([eq, _ws]) => eq);
-  var num = Primitives.appfun(Primitives.integer)((n) => new AST.Num(n));
-  var addition = Primitives.char("+");
-  var subtraction = Primitives.char("-");
-  var multiplication = Primitives.char("*");
-  var division = Primitives.char("/");
-  var op = Primitives.appfun(Primitives.seq(Primitives.choice(addition)(Primitives.choice(subtraction)(Primitives.choice(multiplication)(division))))(Primitives.ws))(([op2, _ws]) => op2);
-  var expr = Primitives.appfun(Primitives.seq(num)(Primitives.many(Primitives.seq(op)(num))))(([head, rest]) => rest.reduce((acc, [operator, right]) => AST.combining(acc, operator, right), head));
-  var value = expr;
-  var delimeter = Primitives.char(";");
-  var formula = Primitives.seq(Primitives.seq(Primitives.seq(bind)(name))(assign))(value);
-  var formulaNode = Primitives.appfun(formula)(flattenLetResult);
-  var grammar = Primitives.many1(Primitives.appfun(Primitives.seq(formulaNode)(Primitives.seq(delimeter)(Primitives.many(Primitives.nl))))(([formula2, _ws]) => formula2));
-  var stream = new CharUtil.CharStream("let num = 10;let double = 20;");
+  var [expr, exprImpl] = Primitives.recParser();
+  var ws = Primitives.ws;
+  var ws1 = Primitives.ws1;
+  var semicolon = Primitives.char(";");
+  var letKw = Primitives.appfun(Primitives.seq(Primitives.str("let"))(ws1))(([_, __]) => null);
+  var identifier = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(ws))(([letters, _ws]) => letters.join(""));
+  var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(ws))(([_eq, _ws]) => null);
+  var number = Primitives.appfun(Primitives.seq(Primitives.integer)(ws))(([n, _ws]) => new AST.Num(n));
+  var variable = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(ws))(([letters, _ws]) => new AST.Var(letters.join("")));
+  var opChar = Primitives.choice(Primitives.char("+"))(Primitives.choice(Primitives.char("-"))(Primitives.choice(Primitives.char("*"))(Primitives.char("/"))));
+  var operator = Primitives.appfun(Primitives.seq(opChar)(ws))(([op, _ws]) => op);
+  var middle = Primitives.appfun(Primitives.seq(ws)(expr))(([_ws, e]) => e);
+  var close = Primitives.appfun(Primitives.seq(ws)(Primitives.char(")")))(([_ws, _]) => null);
+  var paren = Primitives.between(Primitives.char("("))(close)(middle);
+  var atom = Primitives.choice(number)(Primitives.choice(variable)(paren));
+  exprImpl.contents = Primitives.appfun(Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom))))(([head, rest]) => rest.reduce((acc, [op, right]) => AST.combining(acc, op, right), head));
+  var letBinding = Primitives.appfun(Primitives.seq(letKw)(Primitives.seq(identifier)(Primitives.seq(assign)(expr))))(([_, [name, [__, value]]]) => new AST.Let(name, value));
+  var grammar = Primitives.many1(Primitives.appfun(Primitives.seq(letBinding)(Primitives.seq(semicolon)(Primitives.many(Primitives.nl))))(([formula, _]) => formula));
+  var stream = new CharUtil.CharStream("let x = 1 + 4; let y = x * 3;");
   var result = grammar(stream);
   var parsed = result.next();
   if (parsed.done && parsed.value.tag === "success") {
@@ -912,15 +924,27 @@
       }
     }
     AST3.Let = Let;
+    class Array {
+      constructor(value) {
+        this.value = value;
+      }
+      evaluate(env) {
+        return new Array(this.value.map((e) => e.evaluate(env)));
+      }
+      toString() {
+        return `[${this.value.join(", ")}]`;
+      }
+    }
+    AST3.Array = Array;
     class Var {
-      constructor(name2) {
-        this.name = name2;
+      constructor(name) {
+        this.name = name;
       }
       evaluate(env) {
         const v = env[this.name];
         if (!v)
           throw new Error("Unbound variable: " + this.name);
-        return v;
+        return v.evaluate(env);
       }
       toString() {
         return this.name;
@@ -928,8 +952,8 @@
     }
     AST3.Var = Var;
     class Num {
-      constructor(value2) {
-        this.value = value2;
+      constructor(value) {
+        this.value = value;
       }
       evaluate(_) {
         return this;
@@ -999,8 +1023,8 @@
       }
     }
     AST3.Div = Div;
-    function combining(left, middle, right) {
-      switch (middle) {
+    function combining(left, middle2, right) {
+      switch (middle2.toString()) {
         case "+":
           return new Plus(left, right);
         case "-":
@@ -1010,7 +1034,7 @@
         case "/":
           return new Div(left, right);
         default:
-          throw new Error(`Unknown operator: ${middle}`);
+          throw new Error(`Unknown operator: ${middle2}`);
       }
     }
     AST3.combining = combining;

@@ -1,81 +1,83 @@
 import { Primitives as P, CharUtil as CU } from './parsecco/src';
 import { AST } from './layupAST';
 
-function flattenLetResult(result: any): AST.Let {
-    const varName: string = result[0][0][1];
-    const valueExpr: AST.Expr = result[1];
-    return new AST.Let(varName, valueExpr);
-}
+const [expr, exprImpl] = P.recParser<AST.Expr>();
 
-// Parse 'let'
-const bind = P.seq(P.str("let"))(P.ws1);
+// Parse separators
+const ws = P.ws;
+const ws1 = P.ws1;
+const semicolon = P.char(';');
+
+// Parse 'let' keyword
+const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
 
 // Parse variable name
-const name = P.appfun(
-  P.seq(P.many1(P.letter))(P.ws))
-  (([letters, _ws]) => letters.join('')
-);
+const identifier = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => letters.join(''));
 
-const assign = P.appfun(P.seq(P.char('='))(P.ws))(([eq, _ws]) => eq);
+// Parse '='
+const assign = P.appfun(P.seq(P.char('='))(ws))(([_eq, _ws]) => null);
 
-const variable = P.appfun(P.seq(P.many1(P.letter))(P.ws))(([letters, _ws]): AST.Expr => new AST.Var(letters.join('')));
-const num = P.appfun(P.seq(P.integer)(P.ws))(([n, _ws]): AST.Expr => new AST.Num(n));
-const addition = P.char('+');
-const subtraction = P.char('-');
-const multiplication = P.char('*');
-const division = P.char('/');
+// Parse atoms
+const number = P.appfun(P.seq(P.integer)(ws))(([n, _ws]) => new AST.Num(n));
+const variable = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => new AST.Var(letters.join('')));
 
-const op = P.appfun(
-  P.seq(
-    P.choice(addition)(
-      P.choice(subtraction)(
-        P.choice(multiplication)(division)
-      )
+// Parse operations
+const opChar = P.choice(P.char('+'))(
+  P.choice(P.char('-'))(
+    P.choice(P.char('*'))(
+      P.char('/')
     )
-  )(P.ws)
-)(
-  ([operator, _ws]) => {
-    const rawOp = Array.isArray(operator) ? operator.flat(Infinity)[0] : operator;
-    return rawOp;
-  }
+  )
+);
+const operator = P.appfun(P.seq(opChar)(ws))(([op, _ws]) => op);
+
+// Flatten the middle: ws + expr => expr
+const middle = P.appfun(P.seq(ws)(expr))(([_ws, e]) => e);
+
+// Flatten the closing: ws + ')' => ignore
+const close = P.appfun(P.seq(ws)(P.char(')')))(([_ws, _]) => null);
+
+// Parse parens
+const paren = P.between(
+  P.char('(')
+)(close)(
+  middle
 );
 
-const atom = P.choice(num)(variable);
+// Atoms: number, variable, or parentheses
+const atom = P.choice(number)(P.choice(variable)(paren));
 
-export const expr = P.appfun(
-  P.seq(atom)(P.many(P.seq(op)(atom)))
-)(
-  ([head, rest]: [AST.Expr, [string, AST.Expr][]]) => 
-    rest.reduce(
-      (acc, [operator, right]) => AST.combining(acc, operator, right),
-      head
+// Parse expr
+exprImpl.contents = P.appfun<[AST.Expr, [string, AST.Expr][]], AST.Expr>(
+    P.seq(atom)(P.many(P.seq(operator)(atom)))
+    )(([head, rest]) => rest.reduce( (acc, [op, right]) => AST.combining(acc, op, right), head
     )
 );
 
-const value = expr;
+// Parse let binding
+const letBinding: P.IParser<AST.Expr> = P.appfun(
+  P.seq(letKw)(P.seq(identifier)(P.seq(assign)(expr)))
+)(([_, [name, [__, value]]]) => new AST.Let(name, value));
 
-const delimeter = P.char(';');
+// Parse multiple formulas
+export const grammar = P.many1(
+  P.appfun(
+    P.seq(letBinding)(P.seq(semicolon)(P.many(P.nl)))
+  )(([formula, _]) => formula)
+);
 
-const formula = P.seq(P.seq(P.seq(bind)(name))(assign))(value);
-
-const formulaNode = P.appfun(formula)(flattenLetResult);
-
-export const grammar = P.many1(P.appfun(P.seq(formulaNode)(P.seq(delimeter)(P.many(P.nl))))(([formula, _ws]) => formula));
-
-const stream = new CU.CharStream("");
+// Example
+const stream = new CU.CharStream("let x = 1 + 4; let y = x * 3;");
 const result = grammar(stream);
 const parsed = result.next();
 
 if (parsed.done && parsed.value.tag === "success") {
-    const env: Record<string, AST.Expr> = {};
-    const astList = parsed.value.result as AST.Expr[];
+  const env: Record<string, AST.Expr> = {};
+  const astList = parsed.value.result as AST.Expr[];
 
-    for (const line of astList) {
-        line.evaluate(env);
-    }
+  for (const line of astList) {
+    line.evaluate(env);
+  }
 
-    console.log(env);
+  console.log(env); // { x: Num { value: 5 }, y: Num { value: 15 } }
 }
-
-// sep/sepby combinator expr, delimeter, ws, nl, ws, expr
-// https://people.cs.nott.ac.uk/pszgmh/monparsing.pdf

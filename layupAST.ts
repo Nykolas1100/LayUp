@@ -22,6 +22,21 @@ export module AST {
         }
     }
 
+    export class Array implements AST.Expr {
+        constructor(public readonly value: AST.Expr[]) {}
+
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            return new Array(
+                this.value.map(e => e.evaluate(env))
+            );
+        }
+
+        toString() {
+            return `[${this.value.join(", ")}]`;
+        }
+    }
+
+
     export class Var implements Expr {
         constructor(public name: string) {}
 
