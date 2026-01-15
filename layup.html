@@ -152,15 +152,40 @@
         }
 
         function parserOutputToTable(output, ast) {
-            if (!output || output.length === 0) return [];
+            if (!ast || ast.length === 0) return [];
 
-            // Map each AST node to a row with key/value
-            const table = ast.map((node, i) => ({
-                Key: node.key ?? `row${i+1}`,
-                Value: output[i] ?? ""
-            }));
+            const rows = [];
 
-            return table;
+            ast.forEach(node => {
+                const key = node.key ?? "";
+
+                const value = node.valueExpr;
+
+                // Header row: variable name
+                rows.push({
+                    Key: key,
+                    Value: ""
+                });
+
+                // Array value
+                if (value && value.value && Array.isArray(value.value)) {
+                    value.value.forEach(elem => {
+                        rows.push({
+                            Key: "",
+                            Value: elem.value ?? elem.toString()
+                        });
+                    });
+                } 
+                // Scalar value
+                else {
+                    rows.push({
+                        Key: "",
+                        Value: value?.value ?? value?.toString() ?? ""
+                    });
+                }
+            });
+
+            return rows;
         }
 
         viewCSVButton.addEventListener("click", () => {

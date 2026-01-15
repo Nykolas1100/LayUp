@@ -44,8 +44,33 @@ const paren = P.between(
   middle
 );
 
+const arr: P.IParser<AST.Expr> =
+  P.appfun(
+    P.between(
+      P.char('[')
+    )(P.char(']'))(
+      P.seq(ws)(
+        P.seq(expr)(
+          P.many(
+            P.seq(
+              P.seq(ws)(P.char(','))
+            )(
+              P.seq(ws)(expr)
+            )
+          )
+        )
+      )
+    )
+  )(
+    ([_, [head, tail]]) =>
+      new AST.Array([
+        head,
+        ...tail.map(([, [, e]]) => e)
+      ])
+  );
+
 // Atoms: number, variable, or parentheses
-const atom = P.choice(number)(P.choice(variable)(paren));
+const atom = P.choice(number)(P.choice(variable)(P.choice(paren)(arr)));
 
 // Parse expr
 exprImpl.contents = P.appfun<[AST.Expr, [string, AST.Expr][]], AST.Expr>(

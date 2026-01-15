@@ -379,8 +379,8 @@
     Primitives2.upper_chars = "abcdefghijklmnopqrstuvwxyz".toUpperCase().split("");
     Primitives2.letter = satClass(Primitives2.lower_chars.concat(Primitives2.upper_chars));
     Primitives2.digit = satClass(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    Primitives2.integer = appfun(many1(Primitives2.digit))((arr) => {
-      const s = CharStream.concat(arr).toString();
+    Primitives2.integer = appfun(many1(Primitives2.digit))((arr2) => {
+      const s = CharStream.concat(arr2).toString();
       return parseFloat(s);
     });
     Primitives2.float = choice(
@@ -890,7 +890,11 @@
   var middle = Primitives.appfun(Primitives.seq(ws)(expr))(([_ws, e]) => e);
   var close = Primitives.appfun(Primitives.seq(ws)(Primitives.char(")")))(([_ws, _]) => null);
   var paren = Primitives.between(Primitives.char("("))(close)(middle);
-  var atom = Primitives.choice(number)(Primitives.choice(variable)(paren));
+  var arr = Primitives.appfun(Primitives.between(Primitives.char("["))(Primitives.char("]"))(Primitives.seq(ws)(Primitives.seq(expr)(Primitives.many(Primitives.seq(Primitives.seq(ws)(Primitives.char(",")))(Primitives.seq(ws)(expr)))))))(([_, [head, tail]]) => new AST.Array([
+    head,
+    ...tail.map(([, [, e]]) => e)
+  ]));
+  var atom = Primitives.choice(number)(Primitives.choice(variable)(Primitives.choice(paren)(arr)));
   exprImpl.contents = Primitives.appfun(Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom))))(([head, rest]) => rest.reduce((acc, [op, right]) => AST.combining(acc, op, right), head));
   var letBinding = Primitives.appfun(Primitives.seq(letKw)(Primitives.seq(identifier)(Primitives.seq(assign)(expr))))(([_, [name, [__, value]]]) => new AST.Let(name, value));
   var grammar = Primitives.many1(Primitives.appfun(Primitives.seq(letBinding)(Primitives.seq(semicolon)(Primitives.many(Primitives.nl))))(([formula, _]) => formula));
