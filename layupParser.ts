@@ -79,10 +79,42 @@ exprImpl.contents = P.appfun<[AST.Expr, [string, AST.Expr][]], AST.Expr>(
     )
 );
 
-// Parse let binding
+// column letters
+const colLetter = P.many1(P.letter);
+// row digits
+const rowNumber = P.many1(P.digit);
+
+// The cell reference parser (e.g., A4)
+const cellRef: P.IParser<{ col: string; row: number }> =
+  P.appfun(P.seq(colLetter)(rowNumber))(([col, row]) => ({
+      col: col.join('').toUpperCase(),
+      row: parseInt(row.join(''), 10)
+  }));
+
+// We use P.ws1 to ensure there is space before "at"
+const fixClause: P.IParser<{ col: string; row: number }> =
+  P.appfun(
+    P.seq(P.ws)(
+      P.seq(P.str("at"))(
+        P.seq(P.ws1)(cellRef)
+      )
+    )
+  )(([_, [__, [___, cell]]]) => cell);
+
+// Update the let binding to use P.many for the optional clause
 const letBinding: P.IParser<AST.Expr> = P.appfun(
-  P.seq(letKw)(P.seq(identifier)(P.seq(assign)(expr)))
-)(([_, [name, [__, value]]]) => new AST.Let(name, value));
+  P.seq(letKw)(
+    P.seq(identifier)(
+      P.seq(assign)(
+        P.seq(expr)(P.many(fixClause)) 
+      )
+    )
+  )
+)(([_, [name, [__, [value, locationArray]]]]) => {
+  // If locationArray is empty (no "at" clause), location is undefined
+  const location = locationArray.length > 0 ? locationArray[0] : undefined;
+  return new AST.Let(name, value, location);
+});
 
 // Parse multiple formulas
 export const grammar = P.many1(

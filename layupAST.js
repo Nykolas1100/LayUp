@@ -1,18 +1,21 @@
 export var AST;
 (function (AST) {
     class Let {
-        constructor(key, valueExpr) {
+        constructor(key, valueExpr, location) {
             this.key = key;
             this.valueExpr = valueExpr;
+            this.location = location;
         }
         evaluate(env) {
-            // Evaluate the RHS (e.g., Var("x") becomes Num(1))
             const val = this.valueExpr.evaluate(env);
-            // Store the concrete value in the environment
             env[this.key] = val;
             return val;
         }
         toString() {
+            // Include location in string representation if present
+            if (this.location) {
+                return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+            }
             return `let ${this.key} = ${this.valueExpr.toString()}`;
         }
     }

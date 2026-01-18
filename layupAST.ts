@@ -7,17 +7,23 @@ export module AST {
     }
 
     export class Let implements AST.Expr {
-    constructor(public key: string, public valueExpr: AST.Expr) {}
+        constructor(
+            public key: string,
+            public valueExpr: AST.Expr,
+            public location?: { col: string; row: number }
+        ) {}
 
-    evaluate(env: Record<string, AST.Expr>): AST.Expr {
-        // Evaluate the RHS (e.g., Var("x") becomes Num(1))
-        const val = this.valueExpr.evaluate(env);
-        // Store the concrete value in the environment
-        env[this.key] = val;
-        return val;
-    }
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            const val = this.valueExpr.evaluate(env);
+            env[this.key] = val;
+            return val;
+        }
 
         toString() {
+            // Include location in string representation if present
+            if (this.location) {
+                return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+            }
             return `let ${this.key} = ${this.valueExpr.toString()}`;
         }
     }

@@ -744,9 +744,10 @@
   var AST;
   ((AST3) => {
     class Let {
-      constructor(key, valueExpr) {
+      constructor(key, valueExpr, location) {
         this.key = key;
         this.valueExpr = valueExpr;
+        this.location = location;
       }
       evaluate(env) {
         const val = this.valueExpr.evaluate(env);
@@ -754,6 +755,9 @@
         return val;
       }
       toString() {
+        if (this.location) {
+          return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+        }
         return `let ${this.key} = ${this.valueExpr.toString()}`;
       }
     }
@@ -896,7 +900,17 @@
   ]));
   var atom = Primitives.choice(number)(Primitives.choice(variable)(Primitives.choice(paren)(arr)));
   exprImpl.contents = Primitives.appfun(Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom))))(([head, rest]) => rest.reduce((acc, [op, right]) => AST.combining(acc, op, right), head));
-  var letBinding = Primitives.appfun(Primitives.seq(letKw)(Primitives.seq(identifier)(Primitives.seq(assign)(expr))))(([_, [name, [__, value]]]) => new AST.Let(name, value));
+  var colLetter = Primitives.many1(Primitives.letter);
+  var rowNumber = Primitives.many1(Primitives.digit);
+  var cellRef = Primitives.appfun(Primitives.seq(colLetter)(rowNumber))(([col, row]) => ({
+    col: col.join("").toUpperCase(),
+    row: parseInt(row.join(""), 10)
+  }));
+  var fixClause = Primitives.appfun(Primitives.seq(Primitives.ws)(Primitives.seq(Primitives.str("at"))(Primitives.seq(Primitives.ws1)(cellRef))))(([_, [__, [___, cell]]]) => cell);
+  var letBinding = Primitives.appfun(Primitives.seq(letKw)(Primitives.seq(identifier)(Primitives.seq(assign)(Primitives.seq(expr)(Primitives.many(fixClause))))))(([_, [name, [__, [value, locationArray]]]]) => {
+    const location = locationArray.length > 0 ? locationArray[0] : void 0;
+    return new AST.Let(name, value, location);
+  });
   var grammar = Primitives.many1(Primitives.appfun(Primitives.seq(letBinding)(Primitives.seq(semicolon)(Primitives.many(Primitives.nl))))(([formula, _]) => formula));
   var stream = new CharUtil.CharStream("let x = 1 + 4; let y = x * 3;");
   var result = grammar(stream);
@@ -914,9 +928,10 @@
   var AST2;
   (function(AST3) {
     class Let {
-      constructor(key, valueExpr) {
+      constructor(key, valueExpr, location) {
         this.key = key;
         this.valueExpr = valueExpr;
+        this.location = location;
       }
       evaluate(env) {
         const val = this.valueExpr.evaluate(env);
@@ -924,6 +939,9 @@
         return val;
       }
       toString() {
+        if (this.location) {
+          return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+        }
         return `let ${this.key} = ${this.valueExpr.toString()}`;
       }
     }
