@@ -76,8 +76,11 @@
 
     </style>
     
-<link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
-<script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.css" type="text/css" />
+
+<script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/index.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jspreadsheet.min.css" type="text/css" />
 
 </head>
 <body>
@@ -90,7 +93,6 @@
             <textarea id="codeInput"></textarea>
 
             <button id="parseButton">Parse Code</button>
-            <button id="viewCsvButton">View CSV</button>
             <button id="downloadCsvButton">Download CSV</button>
 
             <h2>Output</h2>
@@ -107,12 +109,11 @@
     <script src="./dist/bundle.js"></script>
     <script>
         const parseButton = document.getElementById('parseButton');
-        const viewCSVButton = document.getElementById('viewCsvButton');
         const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
-        let csv = [];
-        let table;
+        let csv = null;
+        let sheet;
 
         parseButton.addEventListener('click', () => {
             const code = codeInput.value;
@@ -125,21 +126,42 @@
                     console.error(result.details);
                     csv = [];
                     window.lastAST = [];
-                } else {
-                    outputDiv.textContent =
-                        "AST:\n" + JSON.stringify(result.ast, null, 2) +
-                        "\n\nOutput:\n" + result.output.toString() +
-                        "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
-                    csv = result.output;
-                    window.lastAST = result.ast;
+                    return;
                 }
+
+                outputDiv.textContent =
+                    "AST:\n" + JSON.stringify(result.ast, null, 2) +
+                    "\n\nOutput:\n" + result.output.toString() +
+                    "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
+
+                csv = result.output;
+                window.lastAST = result.ast;
+
+                const cells = parserOutputToSheet(result.output, result.ast);
+
+                if (!sheet) {
+                    sheet = jspreadsheet(document.getElementById("spreadsheet"), {
+                        data: [[]],
+                        minDimensions: [10, 20]
+                    });
+                }
+
+                // clear sheet
+                sheet.setData([[]]);
+
+                // write cells
+                Object.entries(cells).forEach(([key, value]) => {
+                    const [row, col] = key.split(',').map(Number);
+                    sheet.setValueFromCoords(col, row, value);
+                });
+
             } catch (e) {
                 outputDiv.textContent = "Exception: " + e.message;
                 console.error(e);
                 csv = [];
                 window.lastAST = [];
             }
-        });
+});
 
         function csvArrayToObjects(csvArray) {
             if (csvArray.length === 0) return [];
@@ -151,79 +173,106 @@
             });
         }
 
-        function parserOutputToTable(output, ast) {
-            if (!ast || ast.length === 0) return [];
+        function colToIndex(col) {
+            let idx = 0;
+            for (let i = 0; i < col.length; i++) {
+                idx = idx * 26 + (col.charCodeAt(i) - 64);
+            }
+            return idx - 1;
+        }
 
-            const rows = [];
+        function rowToIndex(row) {
+            return row - 1;
+        }
 
-            ast.forEach(node => {
+        function parserOutputToSheet(outputValues, ast) {
+            const cells = {}; // "row,col" -> value
+
+            const unwrap = (v) =>
+                (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+
+            let cursorRow = 0;
+
+            ast.forEach((node, index) => {
+                let val = unwrap(outputValues[index]);
                 const key = node.key ?? "";
 
-                const value = node.valueExpr;
+                let startCol = 0;
+                let startRow = cursorRow;
 
-                // Header row: variable name
-                rows.push({
-                    Key: key,
-                    Value: ""
-                });
+                // explicit placement
+                if (node.location) {
+                    startCol = colToIndex(node.location.col);
+                    startRow = rowToIndex(node.location.row);
+                }
 
-                // Array value
-                if (value && value.value && Array.isArray(value.value)) {
-                    value.value.forEach(elem => {
-                        rows.push({
-                            Key: "",
-                            Value: elem.value ?? elem.toString()
-                        });
+                // arrays expand downward
+                if (Array.isArray(val)) {
+                    val.forEach((item, i) => {
+                        const r = startRow + i;
+                        if (i === 0 && key) {
+                            cells[`${r},${startCol}`] = key;
+                            cells[`${r},${startCol + 1}`] = unwrap(item);
+                        } else {
+                            cells[`${r},${startCol + 1}`] = unwrap(item);
+                        }
                     });
+
+                    if (!node.location) cursorRow += val.length;
                 } 
-                // Scalar value
+                // scalar
                 else {
-                    rows.push({
-                        Key: "",
-                        Value: value?.value ?? value?.toString() ?? ""
-                    });
+                    cells[`${startRow},${startCol}`] = key;
+                    cells[`${startRow},${startCol + 1}`] = unwrap(val);
+
+                    if (!node.location) cursorRow += 1;
                 }
             });
 
-            return rows;
+            return cells;
         }
 
-        viewCSVButton.addEventListener("click", () => {
-            if (!csv || csv.length === 0) return alert("No output to display.");
+        function cellsToCSV(cells) {
+            let maxRow = 0;
+            let maxCol = 0;
 
-            const data = parserOutputToTable(csv, window.lastAST); // save AST after parsing
-            const columns = [
-                { title: "Key", field: "Key" },
-                { title: "Value", field: "Value" }
-            ];
+            Object.keys(cells).forEach(key => {
+                const [row, col] = key.split(',').map(Number);
+                maxRow = Math.max(maxRow, row);
+                maxCol = Math.max(maxCol, col);
+            });
 
-            if (!table) {
-                table = new Tabulator("#spreadsheet", {
-                    data,
-                    columns,
-                    layout: "fitData"
-                });
-            } else {
-                table.setData(data);
-                table.setColumns(columns);
-            }
-        });
+            const grid = Array.from({ length: maxRow + 1 }, () =>
+                Array.from({ length: maxCol + 1 }, () => "")
+            );
+
+            Object.entries(cells).forEach(([key, value]) => {
+                const [row, col] = key.split(',').map(Number);
+                grid[row][col] = value;
+            });
+
+            return grid;
+        }
 
         downloadCSVButton.addEventListener("click", () => {
-            if (!csv || csv.length === 0) {
-                alert("No output to save.");
+            if (!csv || !window.lastAST) {
+                alert("Nothing to export.");
                 return;
             }
 
-            // Map parser output + AST to table rows
-            const tableData = parserOutputToTable(csv, window.lastAST);
+            const cells = parserOutputToSheet(csv, window.lastAST);
+            const grid = cellsToCSV(cells);
 
-            // Build CSV content with header
-            const headers = ["Key", "Value"];
-            const rows = tableData.map(row => [row.Key, row.Value]);
-            const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+            const csvContent = grid
+                .map(row =>
+                    row.map(cell =>
+                        typeof cell === "string" && cell.includes(",")
+                            ? `"${cell}"`
+                            : cell
+                    ).join(",")
+                )
+                .join("\n");
 
-            // Trigger download
             const blob = new Blob([csvContent], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
 
@@ -235,25 +284,6 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
-
-        // downloadCSVButton.addEventListener("click", () => {
-        //     if (!csv || csv.length === 0) {
-        //         alert("No output to save.");
-        //         return;
-        //     }
-
-        //     const csvContent = csv.join(",") + "\n"; // comma separated
-        //     const blob = new Blob([csvContent], { type: "text/csv" });
-        //     const url = URL.createObjectURL(blob);
-
-        //     const a = document.createElement("a");
-        //     a.href = url;
-        //     a.download = "output.csv";
-        //     document.body.appendChild(a);
-        //     a.click();
-        //     document.body.removeChild(a);
-        //     URL.revokeObjectURL(url);
-        // });
 
     </script>
 </body>
