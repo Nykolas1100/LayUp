@@ -53,7 +53,7 @@
 
         #output {
             flex: 1 1 auto;
-            overflow: auto;      /* scroll if too tall */
+            overflow: auto;
         }
 
         pre { 
@@ -68,6 +68,15 @@
             padding: 10px 15px;
             margin-top: 10px;
             font-size: 16px;
+        }
+
+        #codeInput {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: monospace;
+            resize: vertical;
         }
 
         #spreadsheet {
@@ -107,11 +116,13 @@
     </div>
 
     <script src="./dist/bundle.js"></script>
-    <script>
+    <script type="module">
+        import { AST } from "./layupAST.js";
         const parseButton = document.getElementById('parseButton');
         const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
+        const symbolTable = {};
         let csv = null;
         let sheet;
 
@@ -185,6 +196,48 @@
             return row - 1;
         }
 
+        function cellAddress(row, col) {
+            const letter = String.fromCharCode(65 + col);
+            return `${letter}${row + 1}`;
+        }
+
+        function exprToFormula(expr, symbolTable) {
+            // Number literal
+            if ("value" in expr && typeof expr.value === "number") {
+                return expr.value.toString();
+            }
+
+            // Variable
+            if ("name" in expr && typeof expr.name === "string") {
+                return symbolTable[expr.name] ?? "#NAME?";
+            }
+
+            // // Array literal
+            // if (Array.isArray(expr.value)) {
+            //     return `{${expr.value.map(e => exprToFormula(e, symbolTable)).join(",")}}`;
+            // }
+
+            // Binary expressions (detect by fields)
+            if ("left" in expr && "right" in expr) {
+                const left = exprToFormula(expr.left, symbolTable);
+                const right = exprToFormula(expr.right, symbolTable);
+
+                // operator determined by constructor name
+                switch (expr.constructor.name) {
+                    case "Plus":
+                        return `(${left}+${right})`;
+                    case "Minus":
+                        return `(${left}-${right})`;
+                    case "Times":
+                        return `(${left}*${right})`;
+                    case "Div":
+                        return `(${left}/${right})`;
+                }
+            }
+
+            throw new Error("Unsupported expression type: " + JSON.stringify(expr));
+        }
+
         function parserOutputToSheet(outputValues, ast) {
             const cells = {}; // "row,col" -> value
 
@@ -204,26 +257,55 @@
                 if (node.location) {
                     startCol = colToIndex(node.location.col);
                     startRow = rowToIndex(node.location.row);
+                    symbolTable[node.key] = cellAddress(startRow, startCol + 1);
                 }
 
                 // arrays expand downward
-                if (Array.isArray(val)) {
-                    val.forEach((item, i) => {
-                        const r = startRow + i;
+                // if (Array.isArray(val)) {
+                //     val.forEach((item, i) => {
+                //         const r = startRow + i;
+                //         if (i === 0 && key) {
+                //             cells[`${r},${startCol}`] = key;
+                //             const formula = exprToFormula(node.valueExpr, symbolTable);
+                //             cells[`${startRow},${startCol + 1}`] = "=" + formula;
+                //         } else {
+                //             const formula = exprToFormula(node.valueExpr, symbolTable);
+                //             cells[`${startRow},${startCol + 1}`] = "=" + formula;
+                //         }
+                //         symbolTable[key] = cellAddress(startRow, startCol + 1);
+                //     });
+
+                //     if (!node.location) cursorRow += val.length;
+                // }
+
+                if (node.valueExpr && Array.isArray(node.valueExpr.value)) {
+                    const elements = node.valueExpr.value;
+                    
+                    // Register the variable to point to the TOP cell (Head)
+                    if (key) {
+                        symbolTable[key] = cellAddress(startRow, startCol + 1);
+                    }
+
+                    elements.forEach((itemExpr, i) => {
+                        const currentRow = startRow + i;
+                        
                         if (i === 0 && key) {
-                            cells[`${r},${startCol}`] = key;
-                            cells[`${r},${startCol + 1}`] = unwrap(item);
-                        } else {
-                            cells[`${r},${startCol + 1}`] = unwrap(item);
+                            cells[`${currentRow},${startCol}`] = key;
                         }
+
+                        const formula = exprToFormula(itemExpr, symbolTable);
+                        cells[`${currentRow},${startCol + 1}`] = "=" + formula;
                     });
 
-                    if (!node.location) cursorRow += val.length;
-                } 
+                    // Move cursor down by the length of the array
+                    if (!node.location) cursorRow += elements.length;
+                }
                 // scalar
                 else {
                     cells[`${startRow},${startCol}`] = key;
-                    cells[`${startRow},${startCol + 1}`] = unwrap(val);
+                    const formula = exprToFormula(node.valueExpr, symbolTable);
+                    cells[`${startRow},${startCol + 1}`] = "=" + formula;
+                    symbolTable[key] = cellAddress(startRow, startCol + 1);
 
                     if (!node.location) cursorRow += 1;
                 }

@@ -22,7 +22,7 @@ export module AST {
         toString() {
             // Include location in string representation if present
             if (this.location) {
-                return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+                return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
             }
             return `let ${this.key} = ${this.valueExpr.toString()}`;
         }
