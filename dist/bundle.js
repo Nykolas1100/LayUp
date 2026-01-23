@@ -1012,15 +1012,15 @@
   var paren = Primitives.appfun(Primitives.seq(Primitives.between(Primitives.char("("))(Primitives.char(")"))(Primitives.appfun(Primitives.seq(ws)(expr))(([, e]) => e)))(ws))(([e]) => e);
   var arr = Primitives.appfun(Primitives.between(Primitives.char("["))(Primitives.char("]"))(Primitives.seq(ws)(Primitives.seq(expr)(Primitives.many(Primitives.seq(Primitives.seq(ws)(Primitives.char(",")))(Primitives.seq(ws)(expr)))))))(([_, [head, tail]]) => new AST.Array([
     head,
-    ...tail.map(([, [, e]]) => e)
+    ...tail.map((t) => t[1][1])
   ]));
   var atom = Primitives.choice(number)(Primitives.choice(variable)(Primitives.choice(paren)(arr)));
   exprImpl.contents = Primitives.appfun(Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom))))(([head, rest]) => rest.reduce((acc, [op, right]) => AST.combining(acc, op, right), head));
   var colLetter = Primitives.many1(Primitives.letter);
   var rowNumber = Primitives.many1(Primitives.digit);
   var cellRef = Primitives.appfun(Primitives.seq(colLetter)(rowNumber))(([col, row]) => ({
-    col: col.join("").toUpperCase(),
-    row: parseInt(row.join(""), 10)
+    col: col.map((c) => c.toString()).join("").toUpperCase(),
+    row: parseInt(row.map((d) => d.toString()).join(""), 10)
   }));
   var fixClause = Primitives.appfun(Primitives.seq(Primitives.ws)(Primitives.seq(Primitives.str("at"))(Primitives.seq(Primitives.ws1)(cellRef))))(([_, [__, [___, cell]]]) => cell);
   var letBinding = Primitives.appfun(Primitives.seq(letKw)(Primitives.seq(identifier)(Primitives.seq(assign)(Primitives.seq(expr)(Primitives.many(fixClause))))))(([_, [name, [__, [value, locationArray]]]]) => {

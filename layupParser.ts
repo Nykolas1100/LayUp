@@ -47,18 +47,14 @@ const paren = P.appfun(
 )(([e]) => e);
 
 const arr: P.IParser<AST.Expr> =
-  P.appfun(
+  P.appfun<any, AST.Expr>(
     P.between(
       P.char('[')
     )(P.char(']'))(
       P.seq(ws)(
         P.seq(expr)(
           P.many(
-            P.seq(
-              P.seq(ws)(P.char(','))
-            )(
-              P.seq(ws)(expr)
-            )
+            P.seq(P.seq(ws)(P.char(',')))(P.seq(ws)(expr))
           )
         )
       )
@@ -67,7 +63,7 @@ const arr: P.IParser<AST.Expr> =
     ([_, [head, tail]]) =>
       new AST.Array([
         head,
-        ...tail.map(([, [, e]]) => e)
+        ...tail.map((t: any) => t[1][1])
       ])
   );
 
@@ -75,10 +71,13 @@ const arr: P.IParser<AST.Expr> =
 const atom = P.choice(number)(P.choice(variable)(P.choice(paren)(arr)));
 
 // Parse expr
-exprImpl.contents = P.appfun<[AST.Expr, [string, AST.Expr][]], AST.Expr>(
-    P.seq(atom)(P.many(P.seq(operator)(atom)))
-    )(([head, rest]) => rest.reduce( (acc, [op, right]) => AST.combining(acc, op, right), head
-    )
+exprImpl.contents = P.appfun<any, AST.Expr>(
+  P.seq(atom)(P.many(P.seq(operator)(atom)))
+)(([head, rest]) => 
+  rest.reduce(
+    (acc, [op, right]) => AST.combining(acc, op, right), 
+    head
+  )
 );
 
 // column letters
@@ -88,14 +87,16 @@ const rowNumber = P.many1(P.digit);
 
 // The cell reference parser (e.g., A4)
 const cellRef: P.IParser<{ col: string; row: number }> =
-  P.appfun(P.seq(colLetter)(rowNumber))(([col, row]) => ({
-      col: col.join('').toUpperCase(),
-      row: parseInt(row.join(''), 10)
+  P.appfun<any, { col: string; row: number }>(
+    P.seq(colLetter)(rowNumber)
+  )(([col, row]) => ({
+    col: col.map((c: any) => c.toString()).join('').toUpperCase(),
+    row: parseInt(row.map((d: any) => d.toString()).join(''), 10)
   }));
 
 // We use P.ws1 to ensure there is space before "at"
 const fixClause: P.IParser<{ col: string; row: number }> =
-  P.appfun(
+  P.appfun<any, { col: string; row: number }>(
     P.seq(P.ws)(
       P.seq(P.str("at"))(
         P.seq(P.ws1)(cellRef)
@@ -104,7 +105,7 @@ const fixClause: P.IParser<{ col: string; row: number }> =
   )(([_, [__, [___, cell]]]) => cell);
 
 // Update the let binding to use P.many for the optional clause
-const letBinding: P.IParser<AST.Expr> = P.appfun(
+const letBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(letKw)(
     P.seq(identifier)(
       P.seq(assign)(
@@ -113,8 +114,8 @@ const letBinding: P.IParser<AST.Expr> = P.appfun(
     )
   )
 )(([_, [name, [__, [value, locationArray]]]]) => {
-  // If locationArray is empty (no "at" clause), location is undefined
-  const location = locationArray.length > 0 ? locationArray[0] : undefined;
+  // Ensure locationArray is typed as the result of fixClause[]
+  const location = (locationArray as any[]).length > 0 ? locationArray[0] : undefined;
   return new AST.Let(name, value, location);
 });
 
