@@ -14,7 +14,7 @@ export var AST;
         toString() {
             // Include location in string representation if present
             if (this.location) {
-                return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+                return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
             }
             return `let ${this.key} = ${this.valueExpr.toString()}`;
         }
@@ -40,7 +40,8 @@ export var AST;
             const v = env[this.name];
             if (!v)
                 throw new Error("Unbound variable: " + this.name);
-            return v.evaluate(env);
+            // return v.evaluate(env);
+            return v;
         }
         toString() {
             return this.name;
@@ -59,6 +60,14 @@ export var AST;
         }
     }
     AST.Num = Num;
+    function isNum(e) {
+        return e instanceof AST.Num;
+    }
+    AST.isNum = isNum;
+    function isArray(e) {
+        return e instanceof AST.Array;
+    }
+    AST.isArray = isArray;
     class Plus {
         constructor(left, right) {
             this.left = left;
@@ -67,7 +76,26 @@ export var AST;
         evaluate(env) {
             const l = this.left.evaluate(env);
             const r = this.right.evaluate(env);
-            return new Num(l.value + r.value);
+            // Num + Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value + r.value);
+            }
+            // Array + Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(l.value.map(e => new Plus(e, r).evaluate(env)));
+            }
+            // Num + Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(r.value.map(e => new Plus(l, e).evaluate(env)));
+            }
+            // Array + Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in +");
+                }
+                return new Array(l.value.map((e, i) => new Plus(e, r.value[i]).evaluate(env)));
+            }
+            throw new Error("Invalid operands for +");
         }
         toString() {
             return `(${this.left.toString()} + ${this.right.toString()})`;
@@ -82,7 +110,26 @@ export var AST;
         evaluate(env) {
             const l = this.left.evaluate(env);
             const r = this.right.evaluate(env);
-            return new Num(l.value - r.value);
+            // Num - Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value - r.value);
+            }
+            // Array - Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(l.value.map(e => new Minus(e, r).evaluate(env)));
+            }
+            // Num - Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(r.value.map(e => new Minus(l, e).evaluate(env)));
+            }
+            // Array - Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in -");
+                }
+                return new Array(l.value.map((e, i) => new Minus(e, r.value[i]).evaluate(env)));
+            }
+            throw new Error("Invalid operands for -");
         }
         toString() {
             return `(${this.left.toString()} - ${this.right.toString()})`;
@@ -97,7 +144,26 @@ export var AST;
         evaluate(env) {
             const l = this.left.evaluate(env);
             const r = this.right.evaluate(env);
-            return new Num(l.value * r.value);
+            // Num * Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value * r.value);
+            }
+            // Array * Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(l.value.map(e => new Times(e, r).evaluate(env)));
+            }
+            // Num * Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(r.value.map(e => new Times(l, e).evaluate(env)));
+            }
+            // Array * Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in +");
+                }
+                return new Array(l.value.map((e, i) => new Times(e, r.value[i]).evaluate(env)));
+            }
+            throw new Error("Invalid operands for *");
         }
         toString() {
             return `(${this.left.toString()} * ${this.right.toString()})`;
@@ -112,7 +178,26 @@ export var AST;
         evaluate(env) {
             const l = this.left.evaluate(env);
             const r = this.right.evaluate(env);
-            return new Num(l.value / r.value);
+            // Num / Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value / r.value);
+            }
+            // Array / Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(l.value.map(e => new Div(e, r).evaluate(env)));
+            }
+            // Num / Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(r.value.map(e => new Div(l, e).evaluate(env)));
+            }
+            // Array / Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in /");
+                }
+                return new Array(l.value.map((e, i) => new Div(e, r.value[i]).evaluate(env)));
+            }
+            throw new Error("Invalid operands for /");
         }
         toString() {
             return `(${this.left.toString()} / ${this.right.toString()})`;

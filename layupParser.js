@@ -22,7 +22,7 @@ const middle = P.appfun(P.seq(ws)(expr))(([_ws, e]) => e);
 // Flatten the closing: ws + ')' => ignore
 const close = P.appfun(P.seq(ws)(P.char(')')))(([_ws, _]) => null);
 // Parse parens
-const paren = P.between(P.char('('))(close)(middle);
+const paren = P.appfun(P.seq(P.between(P.char('('))(P.char(')'))(P.appfun(P.seq(ws)(expr))(([, e]) => e)))(ws))(([e]) => e);
 const arr = P.appfun(P.between(P.char('['))(P.char(']'))(P.seq(ws)(P.seq(expr)(P.many(P.seq(P.seq(ws)(P.char(',')))(P.seq(ws)(expr)))))))(([_, [head, tail]]) => new AST.Array([
     head,
     ...tail.map(([, [, e]]) => e)

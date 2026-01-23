@@ -38,11 +38,13 @@ const middle = P.appfun(P.seq(ws)(expr))(([_ws, e]) => e);
 const close = P.appfun(P.seq(ws)(P.char(')')))(([_ws, _]) => null);
 
 // Parse parens
-const paren = P.between(
-  P.char('(')
-)(close)(
-  middle
-);
+const paren = P.appfun(
+  P.seq(
+    P.between(P.char('('))(P.char(')'))(
+      P.appfun(P.seq(ws)(expr))(([, e]) => e)
+    )
+  )(ws)
+)(([e]) => e);
 
 const arr: P.IParser<AST.Expr> =
   P.appfun(

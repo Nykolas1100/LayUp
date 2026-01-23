@@ -756,7 +756,7 @@
       }
       toString() {
         if (this.location) {
-          return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+          return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
         }
         return `let ${this.key} = ${this.valueExpr.toString()}`;
       }
@@ -783,7 +783,7 @@
       evaluate(env) {
         const v = env[this.name];
         if (!v) throw new Error("Unbound variable: " + this.name);
-        return v.evaluate(env);
+        return v;
       }
       toString() {
         return this.name;
@@ -802,6 +802,14 @@
       }
     }
     AST3.Num = Num;
+    function isNum(e) {
+      return e instanceof AST3.Num;
+    }
+    AST3.isNum = isNum;
+    function isArray(e) {
+      return e instanceof AST3.Array;
+    }
+    AST3.isArray = isArray;
     class Plus {
       constructor(left, right) {
         this.left = left;
@@ -810,7 +818,34 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value + r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value + r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(
+            l.value.map(
+              (e) => new Plus(e, r).evaluate(env)
+            )
+          );
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(
+            r.value.map(
+              (e) => new Plus(l, e).evaluate(env)
+            )
+          );
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in +");
+          }
+          return new Array(
+            l.value.map(
+              (e, i) => new Plus(e, r.value[i]).evaluate(env)
+            )
+          );
+        }
+        throw new Error("Invalid operands for +");
       }
       toString() {
         return `(${this.left.toString()} + ${this.right.toString()})`;
@@ -825,7 +860,34 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value - r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value - r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(
+            l.value.map(
+              (e) => new Minus(e, r).evaluate(env)
+            )
+          );
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(
+            r.value.map(
+              (e) => new Minus(l, e).evaluate(env)
+            )
+          );
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in -");
+          }
+          return new Array(
+            l.value.map(
+              (e, i) => new Minus(e, r.value[i]).evaluate(env)
+            )
+          );
+        }
+        throw new Error("Invalid operands for -");
       }
       toString() {
         return `(${this.left.toString()} - ${this.right.toString()})`;
@@ -840,7 +902,34 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value * r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value * r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(
+            l.value.map(
+              (e) => new Times(e, r).evaluate(env)
+            )
+          );
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(
+            r.value.map(
+              (e) => new Times(l, e).evaluate(env)
+            )
+          );
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in +");
+          }
+          return new Array(
+            l.value.map(
+              (e, i) => new Times(e, r.value[i]).evaluate(env)
+            )
+          );
+        }
+        throw new Error("Invalid operands for *");
       }
       toString() {
         return `(${this.left.toString()} * ${this.right.toString()})`;
@@ -855,7 +944,34 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value / r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value / r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(
+            l.value.map(
+              (e) => new Div(e, r).evaluate(env)
+            )
+          );
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(
+            r.value.map(
+              (e) => new Div(l, e).evaluate(env)
+            )
+          );
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in /");
+          }
+          return new Array(
+            l.value.map(
+              (e, i) => new Div(e, r.value[i]).evaluate(env)
+            )
+          );
+        }
+        throw new Error("Invalid operands for /");
       }
       toString() {
         return `(${this.left.toString()} / ${this.right.toString()})`;
@@ -893,7 +1009,7 @@
   var operator = Primitives.appfun(Primitives.seq(opChar)(ws))(([op, _ws]) => op);
   var middle = Primitives.appfun(Primitives.seq(ws)(expr))(([_ws, e]) => e);
   var close = Primitives.appfun(Primitives.seq(ws)(Primitives.char(")")))(([_ws, _]) => null);
-  var paren = Primitives.between(Primitives.char("("))(close)(middle);
+  var paren = Primitives.appfun(Primitives.seq(Primitives.between(Primitives.char("("))(Primitives.char(")"))(Primitives.appfun(Primitives.seq(ws)(expr))(([, e]) => e)))(ws))(([e]) => e);
   var arr = Primitives.appfun(Primitives.between(Primitives.char("["))(Primitives.char("]"))(Primitives.seq(ws)(Primitives.seq(expr)(Primitives.many(Primitives.seq(Primitives.seq(ws)(Primitives.char(",")))(Primitives.seq(ws)(expr)))))))(([_, [head, tail]]) => new AST.Array([
     head,
     ...tail.map(([, [, e]]) => e)
@@ -940,7 +1056,7 @@
       }
       toString() {
         if (this.location) {
-          return `fix ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+          return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
         }
         return `let ${this.key} = ${this.valueExpr.toString()}`;
       }
@@ -966,7 +1082,7 @@
         const v = env[this.name];
         if (!v)
           throw new Error("Unbound variable: " + this.name);
-        return v.evaluate(env);
+        return v;
       }
       toString() {
         return this.name;
@@ -985,6 +1101,14 @@
       }
     }
     AST3.Num = Num;
+    function isNum(e) {
+      return e instanceof AST3.Num;
+    }
+    AST3.isNum = isNum;
+    function isArray(e) {
+      return e instanceof AST3.Array;
+    }
+    AST3.isArray = isArray;
     class Plus {
       constructor(left, right) {
         this.left = left;
@@ -993,7 +1117,22 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value + r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value + r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(l.value.map((e) => new Plus(e, r).evaluate(env)));
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(r.value.map((e) => new Plus(l, e).evaluate(env)));
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in +");
+          }
+          return new Array(l.value.map((e, i) => new Plus(e, r.value[i]).evaluate(env)));
+        }
+        throw new Error("Invalid operands for +");
       }
       toString() {
         return `(${this.left.toString()} + ${this.right.toString()})`;
@@ -1008,7 +1147,22 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value - r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value - r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(l.value.map((e) => new Minus(e, r).evaluate(env)));
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(r.value.map((e) => new Minus(l, e).evaluate(env)));
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in -");
+          }
+          return new Array(l.value.map((e, i) => new Minus(e, r.value[i]).evaluate(env)));
+        }
+        throw new Error("Invalid operands for -");
       }
       toString() {
         return `(${this.left.toString()} - ${this.right.toString()})`;
@@ -1023,7 +1177,22 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value * r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value * r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(l.value.map((e) => new Times(e, r).evaluate(env)));
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(r.value.map((e) => new Times(l, e).evaluate(env)));
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in +");
+          }
+          return new Array(l.value.map((e, i) => new Times(e, r.value[i]).evaluate(env)));
+        }
+        throw new Error("Invalid operands for *");
       }
       toString() {
         return `(${this.left.toString()} * ${this.right.toString()})`;
@@ -1038,7 +1207,22 @@
       evaluate(env) {
         const l = this.left.evaluate(env);
         const r = this.right.evaluate(env);
-        return new Num(l.value / r.value);
+        if (isNum(l) && isNum(r)) {
+          return new Num(l.value / r.value);
+        }
+        if (isArray(l) && isNum(r)) {
+          return new Array(l.value.map((e) => new Div(e, r).evaluate(env)));
+        }
+        if (isNum(l) && isArray(r)) {
+          return new Array(r.value.map((e) => new Div(l, e).evaluate(env)));
+        }
+        if (isArray(l) && isArray(r)) {
+          if (l.value.length !== r.value.length) {
+            throw new Error("Array length mismatch in /");
+          }
+          return new Array(l.value.map((e, i) => new Div(e, r.value[i]).evaluate(env)));
+        }
+        throw new Error("Invalid operands for /");
       }
       toString() {
         return `(${this.left.toString()} / ${this.right.toString()})`;

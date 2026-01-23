@@ -49,7 +49,8 @@ export module AST {
         evaluate(env: Record<string, Expr>): Expr {
             const v = env[this.name];
             if (!v) throw new Error("Unbound variable: " + this.name);
-            return v.evaluate(env);
+            // return v.evaluate(env);
+            return v;
         }
 
         toString() {
@@ -69,6 +70,14 @@ export module AST {
         }
     }
 
+    export function isNum(e: AST.Expr): e is AST.Num {
+        return e instanceof AST.Num;
+    }
+
+    export function isArray(e: AST.Expr): e is AST.Array {
+        return e instanceof AST.Array;
+    }
+
     export class Plus implements Expr {
         constructor(
             public readonly left: Expr,
@@ -76,9 +85,45 @@ export module AST {
         ) {}
 
         evaluate(env: Record<string, Expr>): Expr {
-            const l = this.left.evaluate(env) as Num;
-            const r = this.right.evaluate(env) as Num;
-            return new Num(l.value + r.value);
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+
+            // Num + Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value + r.value);
+            }
+
+            // Array + Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(
+                    l.value.map(e =>
+                        new Plus(e, r).evaluate(env)
+                    )
+                );
+            }
+
+            // Num + Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(
+                    r.value.map(e =>
+                        new Plus(l, e).evaluate(env)
+                    )
+                );
+            }
+
+            // Array + Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in +");
+                }
+                return new Array(
+                    l.value.map((e, i) =>
+                        new Plus(e, r.value[i]).evaluate(env)
+                    )
+                );
+            }
+
+            throw new Error("Invalid operands for +");
         }
 
         toString() {
@@ -93,9 +138,45 @@ export module AST {
         ) {}
 
         evaluate(env: Record<string, Expr>): Expr {
-            const l = this.left.evaluate(env) as Num;
-            const r = this.right.evaluate(env) as Num;
-            return new Num(l.value - r.value);
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+
+            // Num - Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value - r.value);
+            }
+
+            // Array - Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(
+                    l.value.map(e =>
+                        new Minus(e, r).evaluate(env)
+                    )
+                );
+            }
+
+            // Num - Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(
+                    r.value.map(e =>
+                        new Minus(l, e).evaluate(env)
+                    )
+                );
+            }
+
+            // Array - Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in -");
+                }
+                return new Array(
+                    l.value.map((e, i) =>
+                        new Minus(e, r.value[i]).evaluate(env)
+                    )
+                );
+            }
+
+            throw new Error("Invalid operands for -");
         }
 
         toString() {
@@ -110,9 +191,45 @@ export module AST {
         ) {}
 
         evaluate(env: Record<string, Expr>): Expr {
-            const l = this.left.evaluate(env) as Num;
-            const r = this.right.evaluate(env) as Num;
-            return new Num(l.value * r.value);
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+
+            // Num * Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value * r.value);
+            }
+
+            // Array * Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(
+                    l.value.map(e =>
+                        new Times(e, r).evaluate(env)
+                    )
+                );
+            }
+
+            // Num * Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(
+                    r.value.map(e =>
+                        new Times(l, e).evaluate(env)
+                    )
+                );
+            }
+
+            // Array * Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in +");
+                }
+                return new Array(
+                    l.value.map((e, i) =>
+                        new Times(e, r.value[i]).evaluate(env)
+                    )
+                );
+            }
+
+            throw new Error("Invalid operands for *");
         }
 
         toString() {
@@ -127,9 +244,45 @@ export module AST {
         ) {}
 
         evaluate(env: Record<string, Expr>): Expr {
-            const l = this.left.evaluate(env) as Num;
-            const r = this.right.evaluate(env) as Num;
-            return new Num(l.value / r.value);
+            const l = this.left.evaluate(env);
+            const r = this.right.evaluate(env);
+
+            // Num / Num
+            if (isNum(l) && isNum(r)) {
+                return new Num(l.value / r.value);
+            }
+
+            // Array / Num
+            if (isArray(l) && isNum(r)) {
+                return new Array(
+                    l.value.map(e =>
+                        new Div(e, r).evaluate(env)
+                    )
+                );
+            }
+
+            // Num / Array
+            if (isNum(l) && isArray(r)) {
+                return new Array(
+                    r.value.map(e =>
+                        new Div(l, e).evaluate(env)
+                    )
+                );
+            }
+
+            // Array / Array
+            if (isArray(l) && isArray(r)) {
+                if (l.value.length !== r.value.length) {
+                    throw new Error("Array length mismatch in /");
+                }
+                return new Array(
+                    l.value.map((e, i) =>
+                        new Div(e, r.value[i]).evaluate(env)
+                    )
+                );
+            }
+
+            throw new Error("Invalid operands for /");
         }
 
         toString() {
