@@ -8,6 +8,10 @@ const ws = P.ws;
 const ws1 = P.ws1;
 const semicolon = P.char(';');
 
+const gap: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(ws)(P.seq(semicolon)(ws))
+)(() => new AST.Gap());
+
 // Parse 'let' keyword
 const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
 
@@ -119,25 +123,15 @@ const letBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   return new AST.Let(name, value, location);
 });
 
+const letStmt: P.IParser<AST.Expr> =
+  P.appfun<any, AST.Expr>(
+    P.seq(letBinding)(
+      P.seq(semicolon)(ws)
+    )
+  )(([expr, _]) => expr);
+
+const statement: P.IParser<AST.Expr> =
+  P.choice(letStmt)(gap);
+
 // Parse multiple formulas
-export const grammar = P.many1(
-  P.appfun(
-    P.seq(letBinding)(P.seq(semicolon)(P.many(P.nl)))
-  )(([formula, _]) => formula)
-);
-
-// Example
-const stream = new CU.CharStream("let x = 1 + 4; let y = x * 3;");
-const result = grammar(stream);
-const parsed = result.next();
-
-if (parsed.done && parsed.value.tag === "success") {
-  const env: Record<string, AST.Expr> = {};
-  const astList = parsed.value.result as AST.Expr[];
-
-  for (const line of astList) {
-    line.evaluate(env);
-  }
-
-  console.log(env); // { x: Num { value: 5 }, y: Num { value: 15 } }
-}
+export const grammar = P.many1(statement);

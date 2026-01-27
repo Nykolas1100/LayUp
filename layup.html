@@ -148,6 +148,7 @@
                 csv = result.output;
                 window.lastAST = result.ast;
 
+                Object.keys(symbolTable).forEach(key => delete symbolTable[key]);
                 const cells = parserOutputToSheet(result.output, result.ast);
 
                 if (!sheet) {
@@ -201,36 +202,46 @@
             return `${letter}${row + 1}`;
         }
 
-        function exprToFormula(expr, symbolTable, offset = 0) {
+        function exprToFormula(expr, symbolTable, rowOffset = 0, colOffset = 0) {
+            // Gap case
+            if (!expr || expr instanceof AST.Gap) {
+                return "";
+            }
             // Number literal
             if ("value" in expr && typeof expr.value === "number") {
                 return expr.value.toString();
             }
 
-            // Variable - THIS IS THE KEY CHANGE
+            // Variable
             if ("name" in expr && typeof expr.name === "string") {
                 const baseAddress = symbolTable[expr.name];
                 if (!baseAddress) return "#NAME?";
                 
-                // If offset is 0, just return the base (e.g., "B1")
-                if (offset === 0) return baseAddress;
+                // If no offset, just return the base
+                if (rowOffset === 0 && colOffset === 0) return baseAddress;
 
-                // Otherwise, shift the row
-                // parse "B1" -> col char "B", row 1
+                // Parse "B1" -> col "B", row 1
                 const match = baseAddress.match(/([A-Z]+)([0-9]+)/);
                 if (match) {
                     const colPart = match[1];
                     const rowPart = parseInt(match[2]);
-                    return `${colPart}${rowPart + offset}`;
+                    
+                    // Apply column offset
+                    const colIndex = colToIndex(colPart) + colOffset;
+                    const newCol = String.fromCharCode(65 + colIndex);
+                    
+                    // Apply row offset
+                    const newRow = rowPart + rowOffset;
+                    
+                    return `${newCol}${newRow}`;
                 }
                 return baseAddress;
             }
 
             // Binary expressions
             if ("left" in expr && "right" in expr) {
-                // Pass the offset down recursively
-                const left = exprToFormula(expr.left, symbolTable, offset);
-                const right = exprToFormula(expr.right, symbolTable, offset);
+                const left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset);
+                const right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset);
 
                 switch (expr.constructor.name) {
                     case "Plus": return `(${left}+${right})`;
@@ -245,75 +256,69 @@
 
         function parserOutputToSheet(outputValues, ast) {
             const cells = {}; 
-            const unwrap = (v) => (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+            const unwrap = (v) => {
+                if (v === null || v === undefined) return v;
+                return (typeof v === 'object' && 'value' in v) ? v.value : v;
+            };
 
             let cursorRow = 0;
 
             ast.forEach((node, index) => {
+                if (node instanceof AST.Gap) {
+                    cursorRow += 1;
+                    return;
+                }
+                if (outputValues[index] instanceof AST.Gap) {
+                    return;
+                }
+                
                 let val = unwrap(outputValues[index]);
                 const key = node.key ?? "";
                 
                 let startCol = 0;
                 let startRow = cursorRow;
 
-                // 1. CHECK FOR RE-DEFINITION (Shadowing)
-                // If this variable already exists, we overwrite it in place.
+                // Redefinition
                 if (key && symbolTable[key]) {
-                    const addr = symbolTable[key]; // e.g., "B1"
+                    const addr = symbolTable[key];
                     const match = addr.match(/([A-Z]+)([0-9]+)/);
                     if (match) {
-                        // We keep the column, but we need numeric indices for processing
-                        // Note: This assumes standard layout. If you want to support moving 
-                        // re-defined vars, you'd need reverse-lookup for col index.
                         startRow = parseInt(match[2]) - 1; 
-                        // We do NOT increment cursorRow at the end if we are updating in place
                     }
                 } 
-                // 2. EXPLICIT LOCATION
+                // Explicit location
                 else if (node.location) {
                     startCol = colToIndex(node.location.col);
                     startRow = rowToIndex(node.location.row);
                 }
 
-                // Register/Update the variable to point to the HEAD cell
+                // Point to head cell
                 if (key) {
                     symbolTable[key] = cellAddress(startRow, startCol + 1);
                 }
 
-                // 3. GENERATE CELLS
+                // Array case
                 if (Array.isArray(val)) {
                     val.forEach((_, i) => {
-                        const currentRow = startRow + i;
+                        const currentCol = startCol + 1 + i; // Shift right for each array element
 
-                        // Label (only on first row)
                         if (i === 0 && key) {
-                            cells[`${currentRow},${startCol}`] = key;
+                            cells[`${startRow},${startCol}`] = key;
                         }
-
-                        // FORMULA GENERATION
-                        // We pass 'i' as the offset. 
-                        // If the AST is [1,2,3], we use the literal.
-                        // If the AST is z+1, we use exprToFormula with offset 'i'
                         
                         let formula;
                         if (node.valueExpr && Array.isArray(node.valueExpr.value) && node.valueExpr.value[i]) {
-                            // Literal array definition: [1, 2, 3]
-                            // No offset needed for literals usually, but safe to pass 0
-                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0);
+                            // Literal array
+                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0, 0);
                         } else {
-                            // Derived array: z + 1
-                            // Pass 'i' so 'z' becomes 'z[i]' (e.g., B1 -> B2)
-                            formula = exprToFormula(node.valueExpr, symbolTable, i);
+                            // Derived array - pass column offset instead of row offset
+                            formula = exprToFormula(node.valueExpr, symbolTable, 0, i);
                         }
 
-                        cells[`${currentRow},${startCol + 1}`] = "=" + formula;
+                        cells[`${startRow},${currentCol}`] = "=" + formula;
                     });
 
-                    // Only move cursor if we aren't updating an existing variable
-                    // and no explicit location was set
-                    if (!node.location && !(key && startRow < cursorRow)) {
-                        cursorRow += val.length;
-                    }
+                    cursorRow += 1;
                 } else {
                     // Scalar Case
                     cells[`${startRow},${startCol}`] = key;

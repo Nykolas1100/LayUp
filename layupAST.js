@@ -32,6 +32,15 @@ export var AST;
         }
     }
     AST.Array = Array;
+    class Gap {
+        evaluate(_) {
+            return this;
+        }
+        toString() {
+            return `Gap`;
+        }
+    }
+    AST.Gap = Gap;
     class Var {
         constructor(name) {
             this.name = name;

@@ -42,6 +42,15 @@ export module AST {
         }
     }
 
+    export class Gap implements AST.Expr {
+        evaluate(_: Record<string, AST.Expr>): AST.Expr {
+            return this;
+        }
+
+        toString() {
+            return `Gap`;
+        }
+    }
 
     export class Var implements Expr {
         constructor(public name: string) {}
@@ -305,6 +314,5 @@ export module AST {
                 throw new Error(`Unknown operator: ${middle}`);
         }
     }
-
 
 }

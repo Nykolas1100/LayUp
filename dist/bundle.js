@@ -240,12 +240,12 @@
       }
     }
     Primitives2.Failure = Failure;
-    function result2(v) {
+    function result(v) {
       return function* (istream) {
         return new Success(istream, v);
       };
     }
-    Primitives2.result = result2;
+    Primitives2.result = result;
     function recParser() {
       const dumbParser = (_input) => {
         throw new Error("You forgot to initialize your recursive parser.");
@@ -342,7 +342,7 @@
       return (q) => {
         return bind(p)((t) => {
           return bind(q)((u) => {
-            return result2([t, u]);
+            return result([t, u]);
           });
         });
       };
@@ -352,7 +352,7 @@
       const f = function(x) {
         const char2 = x.toString();
         if (char2.length !== 1) throw new Error("Input to predicate must be a character.");
-        return p(char2) ? result2(x) : function* (istream) {
+        return p(char2) ? result(x) : function* (istream) {
           return new Failure(istream, istream.startpos - 1);
         };
       };
@@ -361,7 +361,7 @@
     Primitives2.sat = sat;
     function satClass(char_class) {
       const f = (x) => {
-        return char_class.indexOf(x.toString()) > -1 ? result2(x) : function* (istream) {
+        return char_class.indexOf(x.toString()) > -1 ? result(x) : function* (istream) {
           return new Failure(istream, istream.startpos - 1);
         };
       };
@@ -475,7 +475,7 @@
         return (f) => {
           return bind(p)((t) => {
             return bind(q)((u) => {
-              return result2(f(t, u));
+              return result(f(t, u));
             });
           });
         };
@@ -558,7 +558,7 @@
     function fresult(p) {
       return (x) => {
         return (istream) => {
-          return bind(p)((_t) => result2(x))(istream);
+          return bind(p)((_t) => result(x))(istream);
         };
       };
     }
@@ -723,7 +723,7 @@
           return new Failure(istream, istream.startpos);
         } else {
           const match = istream.peek(diff);
-          return yield* result2(match)(rem);
+          return yield* result(match)(rem);
         }
       };
     }
@@ -734,7 +734,7 @@
         if (match.startpos == match.endpos) {
           return new Failure(istream, istream.startpos);
         }
-        return yield* result2(match)(rem);
+        return yield* result(match)(rem);
       };
     }
     Primitives2.matchWhileCharCode = matchWhileCharCode;
@@ -776,6 +776,15 @@
       }
     }
     AST3.Array = Array;
+    class Gap {
+      evaluate(_) {
+        return this;
+      }
+      toString() {
+        return `Gap`;
+      }
+    }
+    AST3.Gap = Gap;
     class Var {
       constructor(name) {
         this.name = name;
@@ -1000,6 +1009,7 @@
   var ws = Primitives.ws;
   var ws1 = Primitives.ws1;
   var semicolon = Primitives.char(";");
+  var gap = Primitives.appfun(Primitives.seq(ws)(Primitives.seq(semicolon)(ws)))(() => new AST.Gap());
   var letKw = Primitives.appfun(Primitives.seq(Primitives.str("let"))(ws1))(([_, __]) => null);
   var identifier = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(ws))(([letters, _ws]) => letters.join(""));
   var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(ws))(([_eq, _ws]) => null);
@@ -1027,18 +1037,9 @@
     const location = locationArray.length > 0 ? locationArray[0] : void 0;
     return new AST.Let(name, value, location);
   });
-  var grammar = Primitives.many1(Primitives.appfun(Primitives.seq(letBinding)(Primitives.seq(semicolon)(Primitives.many(Primitives.nl))))(([formula, _]) => formula));
-  var stream = new CharUtil.CharStream("let x = 1 + 4; let y = x * 3;");
-  var result = grammar(stream);
-  var parsed = result.next();
-  if (parsed.done && parsed.value.tag === "success") {
-    const env = {};
-    const astList = parsed.value.result;
-    for (const line of astList) {
-      line.evaluate(env);
-    }
-    console.log(env);
-  }
+  var letStmt = Primitives.appfun(Primitives.seq(letBinding)(Primitives.seq(semicolon)(ws)))(([expr2, _]) => expr2);
+  var statement = Primitives.choice(letStmt)(gap);
+  var grammar = Primitives.many1(statement);
 
   // layupAST.js
   var AST2;
@@ -1074,6 +1075,15 @@
       }
     }
     AST3.Array = Array;
+    class Gap {
+      evaluate(_) {
+        return this;
+      }
+      toString() {
+        return `Gap`;
+      }
+    }
+    AST3.Gap = Gap;
     class Var {
       constructor(name) {
         this.name = name;
@@ -1249,12 +1259,12 @@
   // webParser.js
   function parseCode(code) {
     try {
-      const stream2 = new CharUtil.CharStream(code);
-      const result2 = grammar(stream2);
-      const parsed2 = result2.next();
-      if (parsed2.done && parsed2.value.tag === "success") {
+      const stream = new CharUtil.CharStream(code);
+      const result = grammar(stream);
+      const parsed = result.next();
+      if (parsed.done && parsed.value.tag === "success") {
         const env = {};
-        const astList = parsed2.value.result;
+        const astList = parsed.value.result;
         const outputs = [];
         for (const line of astList) {
           const val = line.evaluate(env);
@@ -1262,7 +1272,7 @@
         }
         return { ast: astList, env, output: outputs };
       }
-      return { error: "Parse failed", details: parsed2 };
+      return { error: "Parse failed", details: parsed };
     } catch (e) {
       return { error: e.message, details: e.stack };
     }

@@ -1,10 +1,11 @@
-import { Primitives as P, CharUtil as CU } from './parsecco/src';
+import { Primitives as P } from './parsecco/src';
 import { AST } from './layupAST';
 const [expr, exprImpl] = P.recParser();
 // Parse separators
 const ws = P.ws;
 const ws1 = P.ws1;
 const semicolon = P.char(';');
+const gap = P.appfun(P.seq(ws)(P.seq(semicolon)(ws)))(() => new AST.Gap());
 // Parse 'let' keyword
 const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
 // Parse variable name
@@ -48,17 +49,7 @@ const letBinding = P.appfun(P.seq(letKw)(P.seq(identifier)(P.seq(assign)(P.seq(e
     const location = locationArray.length > 0 ? locationArray[0] : undefined;
     return new AST.Let(name, value, location);
 });
+const letStmt = P.appfun(P.seq(letBinding)(P.seq(semicolon)(ws)))(([expr, _]) => expr);
+const statement = P.choice(letStmt)(gap);
 // Parse multiple formulas
-export const grammar = P.many1(P.appfun(P.seq(letBinding)(P.seq(semicolon)(P.many(P.nl))))(([formula, _]) => formula));
-// Example
-const stream = new CU.CharStream("let x = 1 + 4; let y = x * 3;");
-const result = grammar(stream);
-const parsed = result.next();
-if (parsed.done && parsed.value.tag === "success") {
-    const env = {};
-    const astList = parsed.value.result;
-    for (const line of astList) {
-        line.evaluate(env);
-    }
-    console.log(env); // { x: Num { value: 5 }, y: Num { value: 15 } }
-}
+export const grammar = P.many1(statement);
