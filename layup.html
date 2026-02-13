@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web-Based Layup Parser</title>
+    <link rel="stylesheet" href="./dist/bundle.css">
     <style>
         body {
             margin: 0;
@@ -84,12 +85,6 @@
         }
 
     </style>
-    
-<script src="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4/dist/jsuites.min.css" type="text/css" />
-
-<script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/index.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jspreadsheet.min.css" type="text/css" />
 
 </head>
 <body>
@@ -115,7 +110,7 @@
         </div>
     </div>
 
-    <script src="./dist/bundle.js"></script>
+    <script type="module" src="./dist/bundle.js"></script>
     <script type="module">
         import { AST } from "./layupAST.js";
         const parseButton = document.getElementById('parseButton');
@@ -153,18 +148,20 @@
 
                 if (!sheet) {
                     sheet = jspreadsheet(document.getElementById("spreadsheet"), {
-                        data: [[]],
-                        minDimensions: [10, 20]
+                        worksheets: [{
+                            data: [[]],
+                            minDimensions: [10, 20]
+                        }]
                     });
                 }
 
-                // clear sheet
-                sheet.setData([[]]);
+                const currentWorksheet = sheet[0];
+                currentWorksheet.setData([[]]);
 
                 // write cells
                 Object.entries(cells).forEach(([key, value]) => {
                     const [row, col] = key.split(',').map(Number);
-                    sheet.setValueFromCoords(col, row, value);
+                    currentWorksheet.setValueFromCoords(col, row, value);
                 });
 
             } catch (e) {

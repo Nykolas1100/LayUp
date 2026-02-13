@@ -9,15 +9,10 @@ git clone https://github.com/williams-cs/parsecco
 
 ## Run
 
-### IDE
-
-node layupParser.js
-
 ### Web
 
-python -m http.server
+npm start
 
 ## Rebuild
 
-tsc layupParser.ts
-npx esbuild webParser.js --bundle --outfile=dist/bundle.js --format=iife
+npm run build

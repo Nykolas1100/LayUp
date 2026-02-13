@@ -1,0 +1,31 @@
+{
+  "name": "thesis",
+  "version": "1.0.0",
+  "description": "Layup is a functional programming language for spreadsheets",
+  "main": "calcAST.js",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild webParser.js --bundle --outfile=dist/bundle.js --format=esm --platform=browser",
+    "watch": "esbuild webParser.js --bundle --outfile=dist/bundle.js --platform=browser --watch",
+    "start": "http-server ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nykolas1100/LayUp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nykolas1100/LayUp/issues"
+  },
+  "homepage": "https://github.com/Nykolas1100/LayUp#readme",
+  "dependencies": {
+    "jspreadsheet-ce": "^5.0.4",
+    "jsuites": "^6.2.0",
+    "parsecco": "file:parsecco"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.3"
+  }
+}

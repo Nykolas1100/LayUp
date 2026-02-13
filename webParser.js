@@ -1,8 +1,10 @@
 import { grammar } from "./layupParser.js";
 import { CharUtil } from "./parsecco/src";
 import { AST } from "./layupAST.js";
+import jspreadsheet from 'jspreadsheet-ce';
+import 'jspreadsheet-ce/dist/jspreadsheet.css';
 
-function parseCode(code) {
+export function parseCode(code) {
     try {
         const stream = new CharUtil.CharStream(code);
         const result = grammar(stream);
@@ -27,4 +29,8 @@ function parseCode(code) {
     }
 }
 
+export { AST };
+
+window.jspreadsheet = jspreadsheet;
 window.parseCode = parseCode;
+window.AST = AST;
