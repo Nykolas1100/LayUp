@@ -1,0 +1,17 @@
+{
+  "name": "z3",
+  "version": "1.0.0",
+  "description": "",
+  "main": "z3main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "z3-solver": "^4.15.4"
+  },
+  "devDependencies": {}
+}
