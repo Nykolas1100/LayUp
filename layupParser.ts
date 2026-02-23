@@ -15,6 +15,9 @@ const gap: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
 // Parse 'let' keyword
 const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
 
+// Parse 'def' keyword
+const defKw = P.appfun(P.seq(P.str("def"))(ws1))(([_, __]) => null);
+
 // Parse variable name
 const identifier = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => letters.join(''));
 
@@ -22,8 +25,12 @@ const identifier = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => le
 const assign = P.appfun(P.seq(P.char('='))(ws))(([_eq, _ws]) => null);
 
 // Parse atoms
-const number = P.appfun(P.seq(P.integer)(ws))(([n, _ws]) => new AST.Num(n));
-const variable = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => new AST.Var(letters.join('')));
+const number: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(P.integer)(ws)
+)(([n, _ws]) => new AST.Num(n));
+const variable: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(P.many1(P.letter))(ws)
+)(([letters, _ws]) => new AST.Var(letters.join('')));
 
 // Parse operations
 const opChar = P.choice(P.char('+'))(
@@ -35,17 +42,11 @@ const opChar = P.choice(P.char('+'))(
 );
 const operator = P.appfun(P.seq(opChar)(ws))(([op, _ws]) => op);
 
-// Flatten the middle: ws + expr => expr
-const middle = P.appfun(P.seq(ws)(expr))(([_ws, e]) => e);
-
-// Flatten the closing: ws + ')' => ignore
-const close = P.appfun(P.seq(ws)(P.char(')')))(([_ws, _]) => null);
-
 // Parse parens
-const paren = P.appfun(
+const paren: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(
     P.between(P.char('('))(P.char(')'))(
-      P.appfun(P.seq(ws)(expr))(([, e]) => e)
+      P.appfun<any, AST.Expr>(P.seq(ws)(expr))(([, e]) => e)
     )
   )(ws)
 )(([e]) => e);
@@ -71,8 +72,42 @@ const arr: P.IParser<AST.Expr> =
       ])
   );
 
+const argWithComma =
+  P.appfun(
+    P.seq(P.char(','))(P.seq(ws)(expr))
+  )((value) => {
+    const [, [, e]] = value as any;
+    return e;
+  });
+
+const args: P.IParser<AST.Expr[]> =
+  P.appfun<any, AST.Expr[]>(
+    P.between(P.char('('))(P.char(')'))(
+      P.seq(ws)(
+        P.seq(expr)(P.many(argWithComma))
+      )
+    )
+  )((result) => {
+    const [_, [head, tail]] = result as [any, [AST.Expr, AST.Expr[]]];
+    return [head, ...tail];
+  });
+
+// Function call
+const funcCall: P.IParser<AST.Expr> =
+  P.appfun<any, AST.Expr>(
+    P.seq(P.many1(P.letter))(args)   // ← removed the inner seq + P.ws
+  )(([letters, argList]) =>          // ← changed destructuring (no longer nested)
+    new AST.Call(letters.join(''), argList)
+  );
+
 // Atoms: number, variable, or parentheses
-const atom = P.choice(number)(P.choice(variable)(P.choice(paren)(arr)));
+const atom: P.IParser<AST.Expr> = P.choice<AST.Expr>(number)(
+  P.choice<AST.Expr>(funcCall)(
+    P.choice<AST.Expr>(variable)(
+      P.choice<AST.Expr>(paren)(arr)
+    )
+  )
+);
 
 // Parse expr
 exprImpl.contents = P.appfun<any, AST.Expr>(
@@ -83,6 +118,31 @@ exprImpl.contents = P.appfun<any, AST.Expr>(
     head
   )
 );
+
+const param =
+  P.appfun(P.seq(identifier)(ws))(([name]) => name);
+
+const paramWithComma =
+  P.appfun(
+    P.seq(P.char(','))(P.seq(ws)(param))
+  )
+  ((value) => {
+    const [, [, p]] = value as any;
+    return p;
+  });
+
+const parameters =
+  P.appfun(
+    P.seq(
+      P.between(P.char('('))(P.char(')'))(
+        P.seq(param)(P.many(paramWithComma))
+      )
+    )(ws)
+  )
+  ((value) => {
+    const [[head, tail]] = value as any;
+    return [head, ...tail];
+  });
 
 // column letters
 const colLetter = P.many1(P.letter);
@@ -118,9 +178,27 @@ const letBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
     )
   )
 )(([_, [name, [__, [value, locationArray]]]]) => {
-  // Ensure locationArray is typed as the result of fixClause[]
   const location = (locationArray as any[]).length > 0 ? locationArray[0] : undefined;
   return new AST.Let(name, value, location);
+});
+
+const defBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(defKw)(
+    P.seq(identifier)(
+      P.seq(parameters)(
+        P.seq(assign)(
+          P.seq(expr)(P.many(fixClause)) 
+        )
+      )
+    )
+  )
+)(([_, [name, [params, [__, [body, locationArray]]]]]) => {
+  const location =
+    (locationArray as any[]).length > 0
+      ? locationArray[0]
+      : undefined;
+
+  return new AST.Def(name, params, body);
 });
 
 const letStmt: P.IParser<AST.Expr> =
@@ -130,8 +208,17 @@ const letStmt: P.IParser<AST.Expr> =
     )
   )(([expr, _]) => expr);
 
+const defStmt: P.IParser<AST.Expr> =
+  P.appfun<any, AST.Expr>(
+    P.seq(defBinding)(
+      P.seq(semicolon)(ws)
+    )
+  )(([expr, _]) => expr);
+
 const statement: P.IParser<AST.Expr> =
-  P.choice(letStmt)(gap);
+  P.choice(defStmt)(
+    P.choice(letStmt)(gap)
+  );
 
 // Parse multiple formulas
 export const grammar = P.many1(statement);

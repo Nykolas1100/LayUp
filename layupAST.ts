@@ -28,6 +28,44 @@ export module AST {
         }
     }
 
+    export class Closure implements AST.Expr {
+        constructor(
+            public parameters: string[],
+            public body: AST.Expr,
+            public capturedEnv: Record<string, AST.Expr>
+        ) {}
+
+        evaluate(_: Record<string, AST.Expr>): AST.Expr {
+            return this;
+        }
+
+        toString() {
+            return `fn(${this.parameters.join(", ")}) { ${this.body.toString()} }`;
+        }
+    }
+
+    export class Def implements AST.Expr {
+        constructor(
+            public key: string,
+            public parameters: string[],
+            public body: AST.Expr
+        ) {}
+
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            const closure = new Closure(this.parameters, this.body, { ...env });
+            
+            // Bind the function to its name in the environment
+            env[this.key] = closure;
+            closure.capturedEnv[this.key] = closure; 
+            
+            return closure;
+        }
+
+        toString() {
+            return `def ${this.key}(${this.parameters.join(", ")}) = ${this.body.toString()}`;
+        }
+    }
+
     export class Array implements AST.Expr {
         constructor(public readonly value: AST.Expr[]) {}
 
@@ -88,6 +126,7 @@ export module AST {
     }
 
     export class Plus implements Expr {
+        public readonly op = "+";
         constructor(
             public readonly left: Expr,
             public readonly right: Expr
@@ -141,6 +180,7 @@ export module AST {
     }
 
     export class Minus implements Expr {
+        public readonly op = "-";
         constructor(
             public readonly left: Expr,
             public readonly right: Expr
@@ -194,6 +234,7 @@ export module AST {
     }
 
     export class Times implements Expr {
+        public readonly op = "*";
         constructor(
             public readonly left: Expr,
             public readonly right: Expr
@@ -247,6 +288,7 @@ export module AST {
     }
 
     export class Div implements Expr {
+        public readonly op = "/";
         constructor(
             public readonly left: Expr,
             public readonly right: Expr
@@ -312,6 +354,44 @@ export module AST {
                 return new Div(left, right);
             default:
                 throw new Error(`Unknown operator: ${middle}`);
+        }
+    }
+
+    export class Call implements AST.Expr {
+        constructor(
+            public target: string,
+            public args: AST.Expr[]
+        ) {}
+
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            // Find Function in environment
+            const func = env[this.target];
+            if (!(func instanceof Closure)) {
+                throw new Error(`${this.target} is not a function`);
+            }
+
+            // Check arity
+            if (this.args.length !== func.parameters.length) {
+                throw new Error(`Arity mismatch in ${this.target}: expected ${func.parameters.length}, got ${this.args.length}`);
+            }
+
+            // Evaluate arguments outside of the function
+            const evaluatedArgs = this.args.map(arg => arg.evaluate(env));
+
+            // Create a new local environment for the function execution
+            const localEnv = { ...func.capturedEnv };
+
+            // Bind evaluated arguments to the parameter names
+            func.parameters.forEach((paramName, i) => {
+                localEnv[paramName] = evaluatedArgs[i];
+            });
+
+            // Evaluate and return the function body in the new local environment
+            return func.body.evaluate(localEnv);
+        }
+
+        toString() {
+            return `${this.target}(${this.args.map(a => a.toString()).join(", ")})`;
         }
     }
 

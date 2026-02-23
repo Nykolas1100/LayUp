@@ -1,6 +1,6 @@
-import { grammar } from "./layupParser.js";
-import { CharUtil } from "./parsecco/src";
-import { AST } from "./layupAST.js";
+import { grammar } from "./layupParser.ts";
+import { CharUtil } from "./parsecco/src/index.ts";
+import { AST } from "./layupAST.ts";
 import jspreadsheet from 'jspreadsheet-ce';
 import 'jspreadsheet-ce/dist/jspreadsheet.css';
 

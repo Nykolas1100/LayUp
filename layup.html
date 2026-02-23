@@ -110,14 +110,14 @@
         </div>
     </div>
 
-    <script type="module" src="./dist/bundle.js"></script>
+    <script src="./dist/bundle.js"></script>
     <script type="module">
-        import { AST } from "./layupAST.js";
         const parseButton = document.getElementById('parseButton');
         const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
         const symbolTable = {};
+        const functionTable = {};
         let csv = null;
         let sheet;
 
@@ -138,7 +138,7 @@
                 outputDiv.textContent =
                     "AST:\n" + JSON.stringify(result.ast, null, 2) +
                     "\n\nOutput:\n" + result.output.toString() +
-                    "\n\nEnvironment:\n" + JSON.stringify(result.env, null, 2);
+                    "\n\nEnvironment:\n" + Object.keys(result.env);
 
                 csv = result.output;
                 window.lastAST = result.ast;
@@ -204,9 +204,63 @@
             if (!expr || expr instanceof AST.Gap) {
                 return "";
             }
+
+            // Binary expression
+            if (expr.left && expr.right) {
+                const left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset);
+                const right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset);
+
+                let op = expr.op; 
+                
+                if (!op && expr.constructor) {
+                    const className = expr.constructor.name;
+                    const map = { "Plus": "+", "Minus": "-", "Times": "*", "Div": "/" };
+                    op = map[className];
+                }
+
+                // Final fallback if everything fails
+                op = op || "?"; 
+
+                return `(${left}${op}${right})`;
+            }
+
             // Number literal
             if ("value" in expr && typeof expr.value === "number") {
                 return expr.value.toString();
+            }
+
+            // Function call
+            if (expr.target && expr.args) {
+                const func = functionTable[expr.target];
+                if (!func) return "#NAME?";
+
+                const substitute = (node) => {
+                if (!node) return node;
+
+                // Handle parameter variables
+                if (node.name) {
+                    const paramIndex = func.params.indexOf(node.name);
+                    if (paramIndex !== -1) return expr.args[paramIndex];
+                    return node;
+                }
+
+                // Handle binary operators
+                if (node.left && node.right) {
+                    return {
+                        left: substitute(node.left),
+                        right: substitute(node.right),
+                        op: node.op || (node.constructor.name === "Plus" ? "+" : 
+                                    node.constructor.name === "Minus" ? "-" :
+                                    node.constructor.name === "Times" ? "*" : "/")
+                    };
+                }
+                
+                // Handle numbers and gaps
+                return node;
+            };
+
+                const substituted = substitute(func.body);
+                return exprToFormula(substituted, symbolTable, rowOffset, colOffset);
             }
 
             // Variable
@@ -266,6 +320,15 @@
                     return;
                 }
                 if (outputValues[index] instanceof AST.Gap) {
+                    return;
+                }
+
+                // Capture function definitions
+                if (node.parameters && node.body) {
+                    functionTable[node.key] = {
+                        params: node.parameters,
+                        body: node.body
+                    };
                     return;
                 }
                 

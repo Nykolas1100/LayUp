@@ -5,8 +5,9 @@
   "main": "calcAST.js",
   "type": "module",
   "scripts": {
-    "build": "esbuild webParser.js --bundle --outfile=dist/bundle.js --format=esm --platform=browser",
-    "watch": "esbuild webParser.js --bundle --outfile=dist/bundle.js --platform=browser --watch",
+    "prebuild": "rm -f layupAST.js layupParser.js",
+    "build": "npm run prebuild && esbuild webParser.js --bundle --outfile=dist/bundle.js --format=iife --platform=browser --sourcemap",
+    "watch": "npm run prebuild && esbuild webParser.js --bundle --outfile=dist/bundle.js --format=iife --platform=browser --watch --sourcemap",
     "start": "http-server ."
   },
   "repository": {
