@@ -55,6 +55,7 @@
         #output {
             flex: 1 1 auto;
             overflow: auto;
+            display: none;
         }
 
         pre { 
@@ -73,7 +74,8 @@
 
         #codeInput {
             width: 100%;
-            min-height: 100px;
+            /* min-height: 100px; */
+            height: 62%;
             padding: 10px;
             box-sizing: border-box;
             font-family: monospace;
@@ -97,6 +99,7 @@
             <textarea id="codeInput"></textarea>
 
             <button id="parseButton">Parse Code</button>
+            <button id="toggleAstButton">Show AST</button>
             <button id="downloadCsvButton">Download CSV</button>
 
             <h2>Output</h2>
@@ -113,6 +116,7 @@
     <script src="./dist/bundle.js"></script>
     <script type="module">
         const parseButton = document.getElementById('parseButton');
+        const toggleAstButton = document.getElementById('toggleAstButton');
         const downloadCSVButton = document.getElementById('downloadCsvButton');
         const codeInput = document.getElementById('codeInput');
         const outputDiv = document.getElementById('output');
@@ -135,10 +139,11 @@
                     return;
                 }
 
-                outputDiv.textContent =
-                    "AST:\n" + JSON.stringify(result.ast, null, 2) +
-                    "\n\nOutput:\n" + result.output.toString() +
-                    "\n\nEnvironment:\n" + Object.keys(result.env);
+                // Automatic output presentation
+                // outputDiv.textContent =
+                //     "AST:\n" + JSON.stringify(result.ast, null, 2) +
+                //     "\n\nOutput:\n" + result.output.toString() +
+                //     "\n\nEnvironment:\n" + Object.keys(result.env);
 
                 csv = result.output;
                 window.lastAST = result.ast;
@@ -227,6 +232,11 @@
             // Number literal
             if ("value" in expr && typeof expr.value === "number") {
                 return expr.value.toString();
+            }
+
+            // String literal
+            if ("value" in expr && typeof expr.value === "string") {
+                return `"${expr.value}"`;
             }
 
             // Function call
@@ -415,6 +425,26 @@
 
             return grid;
         }
+
+        toggleAstButton.addEventListener('click', () => {
+            // Check if the output is currently hidden
+            const isHidden = outputDiv.style.display === 'none' || outputDiv.style.display === '';
+
+            if (isHidden) {
+                // If we have data, show it
+                if (window.lastAST) {
+                    outputDiv.textContent = "AST:\n" + JSON.stringify(window.lastAST, null, 2);
+                    outputDiv.style.display = 'block';
+                    toggleAstButton.textContent = "Hide AST";
+                } else {
+                    alert("Please parse some code first!");
+                }
+            } else {
+                // Hide it
+                outputDiv.style.display = 'none';
+                toggleAstButton.textContent = "Show AST";
+            }
+        });
 
         downloadCSVButton.addEventListener("click", () => {
             if (!csv || !window.lastAST) {

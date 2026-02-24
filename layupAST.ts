@@ -105,6 +105,18 @@ export module AST {
         }
     }
 
+    export class Str implements AST.Expr {
+        constructor(public readonly value: string) {}
+
+        evaluate(_: Record<string, AST.Expr>): AST.Expr {
+            return this;
+        }
+
+        toString() {
+            return this.value.toString();
+        }
+    }
+
     export class Num implements AST.Expr {
         constructor(public readonly value: number) {}
 
@@ -115,6 +127,10 @@ export module AST {
         toString() {
             return this.value.toString();
         }
+    }
+
+    export function isStr(e: AST.Expr): e is AST.Str {
+        return e instanceof AST.Str;
     }
 
     export function isNum(e: AST.Expr): e is AST.Num {

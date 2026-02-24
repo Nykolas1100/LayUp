@@ -31,6 +31,9 @@ const number: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
 const variable: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(P.many1(P.letter))(ws)
 )(([letters, _ws]) => new AST.Var(letters.join('')));
+const string: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.between(P.char('"'))(P.char('"'))(P.seq(P.many1(P.letter))(ws))
+)(([letters, _ws]) => new AST.Str(letters.join('')));
 
 // Parse operations
 const opChar = P.choice(P.char('+'))(
@@ -104,7 +107,10 @@ const funcCall: P.IParser<AST.Expr> =
 const atom: P.IParser<AST.Expr> = P.choice<AST.Expr>(number)(
   P.choice<AST.Expr>(funcCall)(
     P.choice<AST.Expr>(variable)(
-      P.choice<AST.Expr>(paren)(arr)
+      P.choice<AST.Expr>(string)(
+        P.choice<AST.Expr>(paren)(arr)
+      )
+      
     )
   )
 );

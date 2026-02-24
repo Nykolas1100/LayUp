@@ -18518,6 +18518,18 @@
       }
     }
     AST2.Var = Var;
+    class Str {
+      constructor(value) {
+        this.value = value;
+      }
+      evaluate(_) {
+        return this;
+      }
+      toString() {
+        return this.value.toString();
+      }
+    }
+    AST2.Str = Str;
     class Num {
       constructor(value) {
         this.value = value;
@@ -18530,6 +18542,10 @@
       }
     }
     AST2.Num = Num;
+    function isStr(e) {
+      return e instanceof AST2.Str;
+    }
+    AST2.isStr = isStr;
     function isNum(e) {
       return e instanceof AST2.Num;
     }
@@ -18770,6 +18786,9 @@
   var variable = Primitives.appfun(
     Primitives.seq(Primitives.many1(Primitives.letter))(ws)
   )(([letters, _ws]) => new AST.Var(letters.join("")));
+  var string = Primitives.appfun(
+    Primitives.between(Primitives.char('"'))(Primitives.char('"'))(Primitives.seq(Primitives.many1(Primitives.letter))(ws))
+  )(([letters, _ws]) => new AST.Str(letters.join("")));
   var opChar = Primitives.choice(Primitives.char("+"))(
     Primitives.choice(Primitives.char("-"))(
       Primitives.choice(Primitives.char("*"))(
@@ -18831,7 +18850,9 @@
   var atom = Primitives.choice(number)(
     Primitives.choice(funcCall)(
       Primitives.choice(variable)(
-        Primitives.choice(paren)(arr)
+        Primitives.choice(string)(
+          Primitives.choice(paren)(arr)
+        )
       )
     )
   );
