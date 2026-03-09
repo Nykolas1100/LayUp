@@ -3,7 +3,16 @@ import { AST } from './layupAST';
 
 const [expr, exprImpl] = P.recParser<AST.Expr>();
 
-// Parse separators
+const singleComment: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(P.ws)(
+    P.seq(P.char('#'))(
+      P.seq(P.many(P.sat((c: string) => c !== '\n')))(P.char('\n'))
+    )
+  )
+)(([_ws, [_hash, [chars, _newline]]]) => 
+  new AST.Comment(chars.map((c: string) => c).join(''))
+);
+
 const ws = P.ws;
 const ws1 = P.ws1;
 const semicolon = P.char(';');
@@ -11,6 +20,9 @@ const semicolon = P.char(';');
 const gap: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(ws)(P.seq(semicolon)(ws))
 )(() => new AST.Gap());
+
+// Parse pipe
+const pipe = P.char('|');
 
 // Parse 'let' keyword
 const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
@@ -21,6 +33,8 @@ const defKw = P.appfun(P.seq(P.str("def"))(ws1))(([_, __]) => null);
 // Parse variable name
 const identifier = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => letters.join(''));
 
+const identifierRaw = P.appfun(P.many1(P.letter))(letters => letters.join(''));
+
 // Parse '='
 const assign = P.appfun(P.seq(P.char('='))(ws))(([_eq, _ws]) => null);
 
@@ -29,8 +43,8 @@ const number: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(P.integer)(ws)
 )(([n, _ws]) => new AST.Num(n));
 const variable: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
-  P.seq(P.many1(P.letter))(ws)
-)(([letters, _ws]) => new AST.Var(letters.join('')));
+  P.seq(identifierRaw)(ws)
+)(([name, _]) => new AST.Var(name));
 const string: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.between(P.char('"'))(P.char('"'))(P.seq(P.many1(P.letter))(ws))
 )(([letters, _ws]) => new AST.Str(letters.join('')));
@@ -95,22 +109,76 @@ const args: P.IParser<AST.Expr[]> =
     return [head, ...tail];
   });
 
-// Function call
-const funcCall: P.IParser<AST.Expr> =
+const param = P.appfun(P.seq(identifierRaw)(ws))(([name, _]) => name);
+
+const paramWithComma = P.appfun(
+  P.seq(P.char(','))(P.seq(ws)(param))
+)((value) => {
+  const [, [, p]] = value as any;
+  return p;
+});
+
+const parameters =
+P.appfun(
+  P.seq(
+    P.between(P.char('('))(P.char(')'))(
+      P.seq(param)(P.many(paramWithComma))
+    )
+  )(ws)
+)
+((value) => {
+  const [[head, tail]] = value as any;
+  return [head, ...tail];
+});
+
+const arrow = P.appfun(
+  P.seq(ws)(P.seq(P.str("->"))(ws))
+)(() => null);
+
+const closureParams: P.IParser<string[]> =
+  P.appfun<any, string[]>(
+    P.between(pipe)(pipe)(
+      P.seq(identifier)(P.many(paramWithComma))
+    )
+  )(([head, tail]) => [head, ...tail]);
+
+const lambda: P.IParser<AST.Expr> =
   P.appfun<any, AST.Expr>(
-    P.seq(P.many1(P.letter))(args)   // ← removed the inner seq + P.ws
-  )(([letters, argList]) =>          // ← changed destructuring (no longer nested)
-    new AST.Call(letters.join(''), argList)
+    P.seq(closureParams)(
+      P.seq(arrow)(expr)
+    )
+  )(([params, [_arrow, body]]) =>
+    new AST.Lambda(params, body)
   );
 
-// Atoms: number, variable, or parentheses
-const atom: P.IParser<AST.Expr> = P.choice<AST.Expr>(number)(
-  P.choice<AST.Expr>(funcCall)(
-    P.choice<AST.Expr>(variable)(
-      P.choice<AST.Expr>(string)(
-        P.choice<AST.Expr>(paren)(arr)
+const emptyArgs: P.IParser<AST.Expr[]> =
+  P.appfun<any, AST.Expr[]>(
+    P.seq(P.char('('))(P.seq(ws)(P.char(')')))
+  )(_ => []);
+
+const argsOrEmpty: P.IParser<AST.Expr[]> =
+  P.choice<AST.Expr[]>(args)(emptyArgs);
+
+const varOrCall: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+  P.seq(identifierRaw)(
+    P.seq(ws)(P.many(argsOrEmpty)) // P.many safely returns [] if no parens exist
+  )
+)(([name, [_, argLists]]) => {
+  // If we found arguments (even empty ones like '()'), it's a Call
+  if (argLists.length > 0) {
+    return new AST.Call(new AST.Var(name), argLists[0]);
+  }
+  // Otherwise, it's just a Variable
+  return new AST.Var(name);
+});
+
+// Atoms: lambda, number, string, varOrCall, parentheses, array
+const atom: P.IParser<AST.Expr> = P.choice(lambda)(
+  P.choice(number)(
+    P.choice(string)(
+      P.choice(varOrCall)(
+        P.choice(paren)(arr)
       )
-      
     )
   )
 );
@@ -124,31 +192,6 @@ exprImpl.contents = P.appfun<any, AST.Expr>(
     head
   )
 );
-
-const param =
-  P.appfun(P.seq(identifier)(ws))(([name]) => name);
-
-const paramWithComma =
-  P.appfun(
-    P.seq(P.char(','))(P.seq(ws)(param))
-  )
-  ((value) => {
-    const [, [, p]] = value as any;
-    return p;
-  });
-
-const parameters =
-  P.appfun(
-    P.seq(
-      P.between(P.char('('))(P.char(')'))(
-        P.seq(param)(P.many(paramWithComma))
-      )
-    )(ws)
-  )
-  ((value) => {
-    const [[head, tail]] = value as any;
-    return [head, ...tail];
-  });
 
 // column letters
 const colLetter = P.many1(P.letter);
@@ -204,7 +247,12 @@ const defBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
       ? locationArray[0]
       : undefined;
 
-  return new AST.Def(name, params, body);
+  // Desugar into a Let + Lambda
+  return new AST.Let(
+    name, 
+    new AST.Lambda(params, body),
+    location
+  );
 });
 
 const letStmt: P.IParser<AST.Expr> =
@@ -222,9 +270,10 @@ const defStmt: P.IParser<AST.Expr> =
   )(([expr, _]) => expr);
 
 const statement: P.IParser<AST.Expr> =
-  P.choice(defStmt)(
-    P.choice(letStmt)(gap)
-  );
+  P.choice(singleComment)(
+    P.choice(defStmt)(
+      P.choice(letStmt)(gap)
+    ));
 
 // Parse multiple formulas
 export const grammar = P.many1(statement);

@@ -210,22 +210,18 @@
                 return "";
             }
 
+            if (!expr || expr instanceof AST.Comment) {
+                return "";
+            }
+
             // Binary expression
             if (expr.left && expr.right) {
                 const left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset);
                 const right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset);
-
-                let op = expr.op; 
                 
-                if (!op && expr.constructor) {
-                    const className = expr.constructor.name;
-                    const map = { "Plus": "+", "Minus": "-", "Times": "*", "Div": "/" };
-                    op = map[className];
-                }
-
-                // Final fallback if everything fails
-                op = op || "?"; 
-
+                const ops = { "Plus": "+", "Minus": "-", "Times": "*", "Div": "/" };
+                const op = expr.op || ops[expr.constructor.name] || "?";
+                
                 return `(${left}${op}${right})`;
             }
 
@@ -240,37 +236,54 @@
             }
 
             // Function call
-            if (expr.target && expr.args) {
-                const func = functionTable[expr.target];
-                if (!func) return "#NAME?";
+            if (expr instanceof AST.Call) {
+                let funcTemplate = null;
 
+                // If target is a variable (e.g., add(1,2)), look it up
+                if (expr.target instanceof AST.Var) {
+                    funcTemplate = functionTable[expr.target.name];
+                } 
+                // If target is an anonymous lambda (e.g., (fn(x){x})(1))
+                else if (expr.target instanceof AST.Lambda) {
+                    funcTemplate = { params: expr.target.parameters, body: expr.target.body };
+                }
+
+                if (!funcTemplate) return "#NAME?";
+
+                // Helper to perform symbolic substitution
                 const substitute = (node) => {
-                if (!node) return node;
+                    if (!node) return node;
 
-                // Handle parameter variables
-                if (node.name) {
-                    const paramIndex = func.params.indexOf(node.name);
-                    if (paramIndex !== -1) return expr.args[paramIndex];
+                    if (node instanceof AST.Var) {
+                        const paramIndex = funcTemplate.params.indexOf(node.name);
+                        // Replace parameter name with the actual argument expression
+                        if (paramIndex !== -1) return expr.args[paramIndex];
+                        return node;
+                    }
+
+                    if (node.left && node.right) {
+                        // Clone the binary node with substituted children
+                        const clone = Object.assign(Object.create(Object.getPrototypeOf(node)), node);
+                        clone.left = substitute(node.left);
+                        clone.right = substitute(node.right);
+                        return clone;
+                    }
+
+                    if (node instanceof AST.Call) {
+                        const clone = Object.assign(Object.create(Object.getPrototypeOf(node)), node);
+                        clone.args = node.args.map(substitute);
+                        return clone;
+                    }
                     return node;
-                }
+                };
 
-                // Handle binary operators
-                if (node.left && node.right) {
-                    return {
-                        left: substitute(node.left),
-                        right: substitute(node.right),
-                        op: node.op || (node.constructor.name === "Plus" ? "+" : 
-                                    node.constructor.name === "Minus" ? "-" :
-                                    node.constructor.name === "Times" ? "*" : "/")
-                    };
-                }
-                
-                // Handle numbers and gaps
-                return node;
-            };
+                const substitutedBody = substitute(funcTemplate.body);
+                return exprToFormula(substitutedBody, symbolTable, rowOffset, colOffset);
+            }
 
-                const substituted = substitute(func.body);
-                return exprToFormula(substituted, symbolTable, rowOffset, colOffset);
+            // Lambda literal
+            if (expr instanceof AST.Lambda) {
+                return `"<Lambda(${expr.parameters.join(',')})>"`;
             }
 
             // Variable
@@ -299,19 +312,6 @@
                 return baseAddress;
             }
 
-            // Binary expressions
-            if ("left" in expr && "right" in expr) {
-                const left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset);
-                const right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset);
-
-                switch (expr.constructor.name) {
-                    case "Plus": return `(${left}+${right})`;
-                    case "Minus": return `(${left}-${right})`;
-                    case "Times": return `(${left}*${right})`;
-                    case "Div": return `(${left}/${right})`;
-                }
-            }
-
             throw new Error("Unsupported expression type: " + JSON.stringify(expr));
         }
 
@@ -329,19 +329,19 @@
                     cursorRow += 1;
                     return;
                 }
-                if (outputValues[index] instanceof AST.Gap) {
+
+                if (node instanceof AST.Comment) {
                     return;
                 }
 
                 // Capture function definitions
-                if (node.parameters && node.body) {
+                if (node instanceof AST.Let && node.valueExpr instanceof AST.Lambda) {
                     functionTable[node.key] = {
-                        params: node.parameters,
-                        body: node.body
+                        params: node.valueExpr.parameters,
+                        body: node.valueExpr.body
                     };
                     return;
                 }
-                
                 let val = unwrap(outputValues[index]);
                 const key = node.key ?? "";
                 
@@ -365,6 +365,18 @@
                 // Point to head cell
                 if (key) {
                     symbolTable[key] = cellAddress(startRow, startCol + 1);
+                }
+
+                if (node instanceof AST.Let && node.valueExpr instanceof AST.Call) {
+                    const callExpr = node.valueExpr;
+                    if (callExpr.target instanceof AST.Lambda) {
+                        // Immediately inline — treat like a scalar with substituted body
+                        const lambda = callExpr.target;
+                        const substituted = lambda.parameters.reduce((bodyNode, param, i) => {
+                            return substituteInNode(bodyNode, param, callExpr.args[i]);
+                        }, lambda.body);
+                        node = { ...node, valueExpr: substituted };
+                    }
                 }
 
                 // Array case

@@ -18072,7 +18072,7 @@
       return parseFloat(s);
     });
     Primitives2.float = choice(
-      pipe2(Primitives2.integer)(right2(char("."))(Primitives2.integer))(
+      pipe22(Primitives2.integer)(right2(char("."))(Primitives2.integer))(
         (a, b) => parseFloat(a.toString() + "." + b.toString())
       )
     )(Primitives2.integer);
@@ -18158,7 +18158,7 @@
     }
     Primitives2.appfun = appfun;
     Primitives2.pipe = appfun;
-    function pipe2(p) {
+    function pipe22(p) {
       return (q) => {
         return (f) => {
           return bind(p)((t) => {
@@ -18169,16 +18169,16 @@
         };
       };
     }
-    Primitives2.pipe2 = pipe2;
+    Primitives2.pipe2 = pipe22;
     function pipe3(p1) {
       return (p2) => {
         return (p3) => {
           return (f) => {
-            return pipe2(
+            return pipe22(
               // parse p1
               p1
             )(
-              pipe2(
+              pipe22(
                 // then parse p2
                 p2
               )(
@@ -18223,7 +18223,7 @@
     Primitives2.many = many;
     function many1(p) {
       return (istream) => {
-        return pipe2(p)(many(p))((hd, tl) => {
+        return pipe22(p)(many(p))((hd, tl) => {
           tl.unshift(hd);
           return tl;
         })(istream);
@@ -18450,6 +18450,18 @@
       }
     }
     AST2.Let = Let;
+    class Comment {
+      constructor(text) {
+        this.text = text;
+      }
+      evaluate(env) {
+        return this;
+      }
+      toString() {
+        return `# ${this.text}`;
+      }
+    }
+    AST2.Comment = Comment;
     class Closure {
       constructor(parameters2, body, capturedEnv) {
         this.parameters = parameters2;
@@ -18460,10 +18472,23 @@
         return this;
       }
       toString() {
-        return `fn(${this.parameters.join(", ")}) { ${this.body.toString()} }`;
+        return `<Closure(${this.parameters.join(", ")})>`;
       }
     }
     AST2.Closure = Closure;
+    class Lambda {
+      constructor(parameters2, body) {
+        this.parameters = parameters2;
+        this.body = body;
+      }
+      evaluate(env) {
+        return new Closure(this.parameters, this.body, { ...env });
+      }
+      toString() {
+        return `fn(${this.parameters.join(", ")}) { ${this.body.toString()} }`;
+      }
+    }
+    AST2.Lambda = Lambda;
     class Def {
       constructor(key, parameters2, body) {
         this.key = key;
@@ -18510,8 +18535,10 @@
       }
       evaluate(env) {
         const v = env[this.name];
-        if (!v) throw new Error("Unbound variable: " + this.name);
-        return v;
+        if (v === void 0) {
+          throw new Error("Unbound variable: " + this.name);
+        }
+        return env[this.name];
       }
       toString() {
         return this.name;
@@ -18747,22 +18774,22 @@
         this.args = args2;
       }
       evaluate(env) {
-        const func = env[this.target];
+        const func = this.target.evaluate(env);
         if (!(func instanceof Closure)) {
-          throw new Error(`${this.target} is not a function`);
+          throw new Error(`${this.target.toString()} is not a function`);
         }
         if (this.args.length !== func.parameters.length) {
-          throw new Error(`Arity mismatch in ${this.target}: expected ${func.parameters.length}, got ${this.args.length}`);
+          throw new Error(`Arity mismatch: expected ${func.parameters.length}, got ${this.args.length}`);
         }
         const evaluatedArgs = this.args.map((arg) => arg.evaluate(env));
-        const localEnv = { ...func.capturedEnv };
+        const localEnv = Object.create(func.capturedEnv);
         func.parameters.forEach((paramName, i2) => {
           localEnv[paramName] = evaluatedArgs[i2];
         });
         return func.body.evaluate(localEnv);
       }
       toString() {
-        return `${this.target}(${this.args.map((a) => a.toString()).join(", ")})`;
+        return `${this.target.toString()}(${this.args.map((a) => a.toString()).join(", ")})`;
       }
     }
     AST2.Call = Call;
@@ -18770,22 +18797,33 @@
 
   // layupParser.ts
   var [expr, exprImpl] = Primitives.recParser();
+  var singleComment = Primitives.appfun(
+    Primitives.seq(Primitives.ws)(
+      Primitives.seq(Primitives.char("#"))(
+        Primitives.seq(Primitives.many(Primitives.sat((c) => c !== "\n")))(Primitives.char("\n"))
+      )
+    )
+  )(
+    ([_ws, [_hash, [chars, _newline]]]) => new AST.Comment(chars.map((c) => c).join(""))
+  );
   var ws = Primitives.ws;
   var ws1 = Primitives.ws1;
   var semicolon = Primitives.char(";");
   var gap = Primitives.appfun(
     Primitives.seq(ws)(Primitives.seq(semicolon)(ws))
   )(() => new AST.Gap());
+  var pipe = Primitives.char("|");
   var letKw = Primitives.appfun(Primitives.seq(Primitives.str("let"))(ws1))(([_, __]) => null);
   var defKw = Primitives.appfun(Primitives.seq(Primitives.str("def"))(ws1))(([_, __]) => null);
   var identifier = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(ws))(([letters, _ws]) => letters.join(""));
+  var identifierRaw = Primitives.appfun(Primitives.many1(Primitives.letter))((letters) => letters.join(""));
   var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(ws))(([_eq, _ws]) => null);
   var number = Primitives.appfun(
     Primitives.seq(Primitives.integer)(ws)
   )(([n, _ws]) => new AST.Num(n));
   var variable = Primitives.appfun(
-    Primitives.seq(Primitives.many1(Primitives.letter))(ws)
-  )(([letters, _ws]) => new AST.Var(letters.join("")));
+    Primitives.seq(identifierRaw)(ws)
+  )(([name, _]) => new AST.Var(name));
   var string = Primitives.appfun(
     Primitives.between(Primitives.char('"'))(Primitives.char('"'))(Primitives.seq(Primitives.many1(Primitives.letter))(ws))
   )(([letters, _ws]) => new AST.Str(letters.join("")));
@@ -18838,33 +18876,7 @@
     const [_, [head, tail]] = result;
     return [head, ...tail];
   });
-  var funcCall = Primitives.appfun(
-    Primitives.seq(Primitives.many1(Primitives.letter))(args)
-    // ← removed the inner seq + P.ws
-  )(
-    ([letters, argList]) => (
-      // ← changed destructuring (no longer nested)
-      new AST.Call(letters.join(""), argList)
-    )
-  );
-  var atom = Primitives.choice(number)(
-    Primitives.choice(funcCall)(
-      Primitives.choice(variable)(
-        Primitives.choice(string)(
-          Primitives.choice(paren)(arr)
-        )
-      )
-    )
-  );
-  exprImpl.contents = Primitives.appfun(
-    Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom)))
-  )(
-    ([head, rest]) => rest.reduce(
-      (acc, [op, right2]) => AST.combining(acc, op, right2),
-      head
-    )
-  );
-  var param = Primitives.appfun(Primitives.seq(identifier)(ws))(([name]) => name);
+  var param = Primitives.appfun(Primitives.seq(identifierRaw)(ws))(([name, _]) => name);
   var paramWithComma = Primitives.appfun(
     Primitives.seq(Primitives.char(","))(Primitives.seq(ws)(param))
   )((value) => {
@@ -18881,6 +18893,53 @@
     const [[head, tail]] = value;
     return [head, ...tail];
   });
+  var arrow = Primitives.appfun(
+    Primitives.seq(ws)(Primitives.seq(Primitives.str("->"))(ws))
+  )(() => null);
+  var closureParams = Primitives.appfun(
+    Primitives.between(pipe)(pipe)(
+      Primitives.seq(identifier)(Primitives.many(paramWithComma))
+    )
+  )(([head, tail]) => [head, ...tail]);
+  var lambda = Primitives.appfun(
+    Primitives.seq(closureParams)(
+      Primitives.seq(arrow)(expr)
+    )
+  )(
+    ([params, [_arrow, body]]) => new AST.Lambda(params, body)
+  );
+  var emptyArgs = Primitives.appfun(
+    Primitives.seq(Primitives.char("("))(Primitives.seq(ws)(Primitives.char(")")))
+  )((_) => []);
+  var argsOrEmpty = Primitives.choice(args)(emptyArgs);
+  var varOrCall = Primitives.appfun(
+    Primitives.seq(identifierRaw)(
+      Primitives.seq(ws)(Primitives.many(argsOrEmpty))
+      // P.many safely returns [] if no parens exist
+    )
+  )(([name, [_, argLists]]) => {
+    if (argLists.length > 0) {
+      return new AST.Call(new AST.Var(name), argLists[0]);
+    }
+    return new AST.Var(name);
+  });
+  var atom = Primitives.choice(lambda)(
+    Primitives.choice(number)(
+      Primitives.choice(string)(
+        Primitives.choice(varOrCall)(
+          Primitives.choice(paren)(arr)
+        )
+      )
+    )
+  );
+  exprImpl.contents = Primitives.appfun(
+    Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom)))
+  )(
+    ([head, rest]) => rest.reduce(
+      (acc, [op, right2]) => AST.combining(acc, op, right2),
+      head
+    )
+  );
   var colLetter = Primitives.many1(Primitives.letter);
   var rowNumber = Primitives.many1(Primitives.digit);
   var cellRef = Primitives.appfun(
@@ -18920,7 +18979,11 @@
     )
   )(([_, [name, [params, [__, [body, locationArray]]]]]) => {
     const location = locationArray.length > 0 ? locationArray[0] : void 0;
-    return new AST.Def(name, params, body);
+    return new AST.Let(
+      name,
+      new AST.Lambda(params, body),
+      location
+    );
   });
   var letStmt = Primitives.appfun(
     Primitives.seq(letBinding)(
@@ -18932,8 +18995,10 @@
       Primitives.seq(semicolon)(ws)
     )
   )(([expr2, _]) => expr2);
-  var statement = Primitives.choice(defStmt)(
-    Primitives.choice(letStmt)(gap)
+  var statement = Primitives.choice(singleComment)(
+    Primitives.choice(defStmt)(
+      Primitives.choice(letStmt)(gap)
+    )
   );
   var grammar = Primitives.many1(statement);
 

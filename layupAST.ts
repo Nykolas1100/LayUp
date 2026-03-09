@@ -28,15 +28,43 @@ export module AST {
         }
     }
 
+    export class Comment implements AST.Expr {
+        constructor(public text: string) {}
+        
+        evaluate(env: Record<string, Expr>): Expr {
+            return this;
+        }
+
+        toString(): string {
+            return `# ${this.text}`;
+        }
+    }
+
     export class Closure implements AST.Expr {
         constructor(
             public parameters: string[],
             public body: AST.Expr,
-            public capturedEnv: Record<string, AST.Expr>
+            public capturedEnv: Record<string, AST.Expr> 
         ) {}
 
         evaluate(_: Record<string, AST.Expr>): AST.Expr {
             return this;
+        }
+
+        toString() {
+            return `<Closure(${this.parameters.join(", ")})>`;
+        }
+    }
+
+    export class Lambda implements AST.Expr {
+        constructor(
+            public parameters: string[],
+            public body: AST.Expr
+        ) {}
+
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            // captures environment at evaluation
+            return new Closure(this.parameters, this.body, { ...env });
         }
 
         toString() {
@@ -95,9 +123,10 @@ export module AST {
 
         evaluate(env: Record<string, Expr>): Expr {
             const v = env[this.name];
-            if (!v) throw new Error("Unbound variable: " + this.name);
-            // return v.evaluate(env);
-            return v;
+            if (v === undefined) {
+                throw new Error("Unbound variable: " + this.name);
+            }
+            return env[this.name];
         }
 
         toString() {
@@ -375,39 +404,39 @@ export module AST {
 
     export class Call implements AST.Expr {
         constructor(
-            public target: string,
+            public target: AST.Expr,
             public args: AST.Expr[]
         ) {}
 
         evaluate(env: Record<string, AST.Expr>): AST.Expr {
-            // Find Function in environment
-            const func = env[this.target];
+            // 1. Evaluate the target expression to get the closure
+            const func = this.target.evaluate(env);
             if (!(func instanceof Closure)) {
-                throw new Error(`${this.target} is not a function`);
+                throw new Error(`${this.target.toString()} is not a function`);
             }
 
-            // Check arity
+            // 2. Check arity
             if (this.args.length !== func.parameters.length) {
-                throw new Error(`Arity mismatch in ${this.target}: expected ${func.parameters.length}, got ${this.args.length}`);
+                throw new Error(`Arity mismatch: expected ${func.parameters.length}, got ${this.args.length}`);
             }
 
-            // Evaluate arguments outside of the function
+            // 3. Evaluate arguments in the caller's environment
             const evaluatedArgs = this.args.map(arg => arg.evaluate(env));
 
-            // Create a new local environment for the function execution
-            const localEnv = { ...func.capturedEnv };
+            // 4. Create a new local scope that inherits from the captured environment.
+            const localEnv = Object.create(func.capturedEnv);
 
-            // Bind evaluated arguments to the parameter names
+            // 5. Bind arguments to parameters
             func.parameters.forEach((paramName, i) => {
                 localEnv[paramName] = evaluatedArgs[i];
             });
 
-            // Evaluate and return the function body in the new local environment
+            // 6. Execute the body
             return func.body.evaluate(localEnv);
         }
 
         toString() {
-            return `${this.target}(${this.args.map(a => a.toString()).join(", ")})`;
+            return `${this.target.toString()}(${this.args.map(a => a.toString()).join(", ")})`;
         }
     }
 
