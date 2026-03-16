@@ -2,6 +2,7 @@
 paraformula/
 parsecco/
 .venv/
+EUSES/
 
 # Files
 letter_frequency.csv
