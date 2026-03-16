@@ -1055,8 +1055,8 @@
                   document.body.removeChild(Component.loading.element);
                 }
               };
-              Component.slideLeft = function(element, direction, done) {
-                if (direction == true) {
+              Component.slideLeft = function(element, direction2, done) {
+                if (direction2 == true) {
                   element.classList.add("jslide-left-in");
                   setTimeout(function() {
                     element.classList.remove("jslide-left-in");
@@ -1074,8 +1074,8 @@
                   }, 400);
                 }
               };
-              Component.slideRight = function(element, direction, done) {
-                if (direction === true) {
+              Component.slideRight = function(element, direction2, done) {
+                if (direction2 === true) {
                   element.classList.add("jslide-right-in");
                   setTimeout(function() {
                     element.classList.remove("jslide-right-in");
@@ -1093,8 +1093,8 @@
                   }, 400);
                 }
               };
-              Component.slideTop = function(element, direction, done) {
-                if (direction === true) {
+              Component.slideTop = function(element, direction2, done) {
+                if (direction2 === true) {
                   element.classList.add("jslide-top-in");
                   setTimeout(function() {
                     element.classList.remove("jslide-top-in");
@@ -1112,8 +1112,8 @@
                   }, 400);
                 }
               };
-              Component.slideBottom = function(element, direction, done) {
-                if (direction === true) {
+              Component.slideBottom = function(element, direction2, done) {
+                if (direction2 === true) {
                   element.classList.add("jslide-bottom-in");
                   setTimeout(function() {
                     element.classList.remove("jslide-bottom-in");
@@ -18432,10 +18432,11 @@
   var AST;
   ((AST2) => {
     class Let {
-      constructor(key, valueExpr, location) {
+      constructor(key, valueExpr, location, direction2) {
         this.key = key;
         this.valueExpr = valueExpr;
         this.location = location;
+        this.direction = direction2;
       }
       evaluate(env) {
         const val = this.valueExpr.evaluate(env);
@@ -18443,8 +18444,12 @@
         return val;
       }
       toString() {
-        if (this.location) {
+        if (this.location && this.direction) {
+          return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row} ${this.direction}`;
+        } else if (this.location) {
           return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+        } else if (this.direction) {
+          return `let ${this.key} = ${this.valueExpr.toString()} ${this.direction}`;
         }
         return `let ${this.key} = ${this.valueExpr.toString()}`;
       }
@@ -18806,6 +18811,11 @@
   )(
     ([_ws, [_hash, [chars, _newline]]]) => new AST.Comment(chars.map((c) => c).join(""))
   );
+  function maybe(p) {
+    return Primitives.appfun(Primitives.many(p))(
+      (arr2) => arr2.length > 0 ? arr2[0] : void 0
+    );
+  }
   var ws = Primitives.ws;
   var ws1 = Primitives.ws1;
   var semicolon = Primitives.char(";");
@@ -18815,8 +18825,16 @@
   var pipe = Primitives.char("|");
   var letKw = Primitives.appfun(Primitives.seq(Primitives.str("let"))(ws1))(([_, __]) => null);
   var defKw = Primitives.appfun(Primitives.seq(Primitives.str("def"))(ws1))(([_, __]) => null);
-  var identifier = Primitives.appfun(Primitives.seq(Primitives.many1(Primitives.letter))(ws))(([letters, _ws]) => letters.join(""));
-  var identifierRaw = Primitives.appfun(Primitives.many1(Primitives.letter))((letters) => letters.join(""));
+  var identifierRaw = Primitives.appfun(
+    Primitives.seq(Primitives.letter)(
+      Primitives.many(Primitives.choice(Primitives.letter)(Primitives.digit))
+    )
+  )(
+    ([first2, rest]) => first2.toString() + rest.map((c) => c.toString()).join("")
+  );
+  var identifier = Primitives.appfun(
+    Primitives.seq(identifierRaw)(ws)
+  )(([name, _]) => name);
   var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(ws))(([_eq, _ws]) => null);
   var number = Primitives.appfun(
     Primitives.seq(Primitives.integer)(ws)
@@ -18955,17 +18973,30 @@
       )
     )
   )(([_, [__, [___, cell]]]) => cell);
+  var direction = Primitives.appfun(
+    Primitives.seq(Primitives.ws)(
+      Primitives.choice(
+        Primitives.appfun(Primitives.str("right"))(() => "right")
+      )(
+        Primitives.appfun(Primitives.str("down"))(() => "down")
+      )
+    )
+  )(([, dir]) => dir);
   var letBinding = Primitives.appfun(
     Primitives.seq(letKw)(
       Primitives.seq(identifier)(
         Primitives.seq(assign)(
-          Primitives.seq(expr)(Primitives.many(fixClause))
+          Primitives.seq(expr)(
+            Primitives.seq(maybe(fixClause))(
+              maybe(direction)
+            )
+          )
         )
       )
     )
-  )(([_, [name, [__, [value, locationArray]]]]) => {
-    const location = locationArray.length > 0 ? locationArray[0] : void 0;
-    return new AST.Let(name, value, location);
+  )(([_, [name, [__, [value, [location, direction2]]]]]) => {
+    const validLocation = location && location.col && location.row ? location : void 0;
+    return new AST.Let(name, value, validLocation, direction2);
   });
   var defBinding = Primitives.appfun(
     Primitives.seq(defKw)(

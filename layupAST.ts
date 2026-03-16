@@ -10,7 +10,8 @@ export module AST {
         constructor(
             public key: string,
             public valueExpr: AST.Expr,
-            public location?: { col: string; row: number }
+            public location?: { col: string; row: number },
+            public direction?: string
         ) {}
 
         evaluate(env: Record<string, AST.Expr>): AST.Expr {
@@ -21,8 +22,12 @@ export module AST {
 
         toString() {
             // Include location in string representation if present
-            if (this.location) {
+            if (this.location && this.direction) {
+                return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row} ${this.direction}`;
+            } else if (this.location) {
                 return `let ${this.key} = ${this.valueExpr.toString()} at ${this.location.col}${this.location.row}`;
+            } else if (this.direction) {
+                return `let ${this.key} = ${this.valueExpr.toString()} ${this.direction}`;
             }
             return `let ${this.key} = ${this.valueExpr.toString()}`;
         }

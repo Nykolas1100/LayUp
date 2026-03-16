@@ -13,6 +13,12 @@ const singleComment: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   new AST.Comment(chars.map((c: string) => c).join(''))
 );
 
+function maybe<T>(p: P.IParser<T>): P.IParser<T | undefined> {
+  return P.appfun(P.many(p) as P.IParser<T[]>)(
+    (arr: T[]) => arr.length > 0 ? arr[0] : undefined
+  ) as P.IParser<T | undefined>;
+}
+
 const ws = P.ws;
 const ws1 = P.ws1;
 const semicolon = P.char(';');
@@ -31,9 +37,18 @@ const letKw = P.appfun(P.seq(P.str("let"))(ws1))(([_, __]) => null);
 const defKw = P.appfun(P.seq(P.str("def"))(ws1))(([_, __]) => null);
 
 // Parse variable name
-const identifier = P.appfun(P.seq(P.many1(P.letter))(ws))(([letters, _ws]) => letters.join(''));
+const identifierRaw: P.IParser<string> = P.appfun<[CU.CharStream, CU.CharStream[]], string>(
+  P.seq<CU.CharStream, CU.CharStream[]>(P.letter)(
+    P.many<CU.CharStream>(P.choice<CU.CharStream>(P.letter)(P.digit))
+  )
+)(([first, rest]: [CU.CharStream, CU.CharStream[]]) =>
+  first.toString() + rest.map(c => c.toString()).join('')
+);
 
-const identifierRaw = P.appfun(P.many1(P.letter))(letters => letters.join(''));
+const identifier =
+  P.appfun(
+    P.seq(identifierRaw)(ws)
+  )(([name, _]) => name);
 
 // Parse '='
 const assign = P.appfun(P.seq(P.char('='))(ws))(([_eq, _ws]) => null);
@@ -207,7 +222,6 @@ const cellRef: P.IParser<{ col: string; row: number }> =
     row: parseInt(row.map((d: any) => d.toString()).join(''), 10)
   }));
 
-// We use P.ws1 to ensure there is space before "at"
 const fixClause: P.IParser<{ col: string; row: number }> =
   P.appfun<any, { col: string; row: number }>(
     P.seq(P.ws)(
@@ -217,18 +231,36 @@ const fixClause: P.IParser<{ col: string; row: number }> =
     )
   )(([_, [__, [___, cell]]]) => cell);
 
+const direction =
+  P.appfun(
+    P.seq(P.ws)(
+      P.choice(
+        P.appfun(P.str("right"))(() => "right")
+      )(
+        P.appfun(P.str("down"))(() => "down")
+      )
+    )
+  )(([, dir]) => dir);
+
 // Update the let binding to use P.many for the optional clause
 const letBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(letKw)(
     P.seq(identifier)(
       P.seq(assign)(
-        P.seq(expr)(P.many(fixClause)) 
+        P.seq(expr)(
+          P.seq(maybe(fixClause))(
+            maybe(direction)
+          )
+        )
       )
     )
   )
-)(([_, [name, [__, [value, locationArray]]]]) => {
-  const location = (locationArray as any[]).length > 0 ? locationArray[0] : undefined;
-  return new AST.Let(name, value, location);
+)(([_, [name, [__, [value, [location, direction]]]]]) => {
+  const validLocation = (location && location.col && location.row) 
+    ? location 
+    : undefined;
+
+  return new AST.Let(name, value, validLocation, direction);
 });
 
 const defBinding: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
