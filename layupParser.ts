@@ -104,6 +104,13 @@ const arr: P.IParser<AST.Expr> =
       ])
   );
 
+  const index: P.IParser<AST.Expr[]> =
+  P.appfun<any, AST.Expr[]>(
+    P.between(P.char('['))(P.char(']'))(
+      P.seq(ws)(expr)
+    )
+  )(([_, e]) => [e]);
+
 const argWithComma =
   P.appfun(
     P.seq(P.char(','))(P.seq(ws)(expr))
@@ -174,36 +181,56 @@ const emptyArgs: P.IParser<AST.Expr[]> =
 const argsOrEmpty: P.IParser<AST.Expr[]> =
   P.choice<AST.Expr[]>(args)(emptyArgs);
 
-const varOrCall: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
-  P.seq(identifierRaw)(
-    P.seq(ws)(P.many(argsOrEmpty)) // P.many safely returns [] if no parens exist
-  )
-)(([name, [_, argLists]]) => {
-  // If we found arguments (even empty ones like '()'), it's a Call
-  if (argLists.length > 0) {
-    return new AST.Call(new AST.Var(name), argLists[0]);
-  }
-  // Otherwise, it's just a Variable
-  return new AST.Var(name);
-});
+type PostfixSuffix =
+  | { kind: 'call'; args: AST.Expr[] }
+  | { kind: 'index'; idx: AST.Expr };
+
+const callSuffix: P.IParser<PostfixSuffix> =
+  P.appfun<any, PostfixSuffix>(argsOrEmpty)(
+    (args) => ({ kind: 'call', args })
+  );
+
+const indexSuffix: P.IParser<PostfixSuffix> =
+  P.appfun<any, PostfixSuffix>(
+    P.between(P.char('['))(P.char(']'))(
+      P.seq(ws)(expr)
+    )
+  )(([_, e]) => ({ kind: 'index', idx: e }));
+
+const postfixSuffix: P.IParser<PostfixSuffix> =
+  P.choice<PostfixSuffix>(callSuffix)(indexSuffix);
 
 // Atoms: lambda, number, string, varOrCall, parentheses, array
 const atom: P.IParser<AST.Expr> = P.choice(lambda)(
   P.choice(number)(
     P.choice(string)(
-      P.choice(varOrCall)(
+      P.choice(variable)(
         P.choice(paren)(arr)
       )
     )
   )
 );
 
+
+const postfix: P.IParser<AST.Expr> =
+  P.appfun<any, AST.Expr>(
+    P.seq(atom)(P.many(postfixSuffix))
+  )(([base, suffixes]) =>
+    suffixes.reduce((acc: AST.Expr, suffix: PostfixSuffix) => {
+      if (suffix.kind === 'call') {
+        return new AST.Call(acc, suffix.args);
+      } else {
+        return new AST.Index(acc, suffix.idx); // add AST.Index to your AST
+      }
+    }, base)
+  );
+
 // Parse expr
 exprImpl.contents = P.appfun<any, AST.Expr>(
-  P.seq(atom)(P.many(P.seq(operator)(atom)))
-)(([head, rest]) => 
+  P.seq(postfix)(P.many(P.seq(operator)(postfix)))  // <-- postfix here
+)(([head, rest]) =>
   rest.reduce(
-    (acc, [op, right]) => AST.combining(acc, op, right), 
+    (acc, [op, right]) => AST.combining(acc, op, right),
     head
   )
 );

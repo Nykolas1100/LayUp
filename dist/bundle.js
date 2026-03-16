@@ -416,9 +416,9 @@
                   window["jSuitesStateControl"].push(component);
                 }, 0);
               } else {
-                var index = window["jSuitesStateControl"].indexOf(component);
-                if (index >= 0) {
-                  window["jSuitesStateControl"].splice(index, 1);
+                var index2 = window["jSuitesStateControl"].indexOf(component);
+                if (index2 >= 0) {
+                  window["jSuitesStateControl"].splice(index2, 1);
                 }
               }
             };
@@ -960,8 +960,8 @@
                     Component.send(Component.queue.shift());
                   }
                   if (Component.requests && Component.requests.length) {
-                    var index = Component.requests.indexOf(httpRequest);
-                    Component.requests.splice(index, 1);
+                    var index2 = Component.requests.indexOf(httpRequest);
+                    Component.requests.splice(index2, 1);
                     if (!Component.requests.length) {
                       if (options.complete && typeof options.complete == "function") {
                         options.complete(result);
@@ -976,8 +976,8 @@
                       }
                     }
                     if (options.multiple && options.multiple.instance) {
-                      var index = options.multiple.instance.indexOf(httpRequest);
-                      options.multiple.instance.splice(index, 1);
+                      var index2 = options.multiple.instance.indexOf(httpRequest);
+                      options.multiple.instance.splice(index2, 1);
                       if (!options.multiple.instance.length) {
                         if (options.multiple.complete && typeof options.multiple.complete == "function") {
                           options.multiple.complete(result);
@@ -1477,8 +1477,8 @@
                 }
                 var n = FormatValue.call(this, v, event);
                 var t = n.length - v.length;
-                var index = Caret.call(e) + t;
-                Value.call(e, n, index, true);
+                var index2 = Caret.call(e) + t;
+                Value.call(e, n, index2, true);
               };
               var Extract = function(v) {
                 var current = ParseValue.call(this, v);
@@ -1490,8 +1490,8 @@
                 }
                 return null;
               };
-              var Caret = function(index, adjustNumeric) {
-                if (index === void 0) {
+              var Caret = function(index2, adjustNumeric) {
+                if (index2 === void 0) {
                   if (this.tagName == "DIV") {
                     var pos = 0;
                     var s = window.getSelection();
@@ -1520,25 +1520,25 @@
                     if (p === null) {
                       p = n.indexOf(" ");
                     }
-                    if (index >= p) {
-                      index = p + 1;
+                    if (index2 >= p) {
+                      index2 = p + 1;
                     }
                   }
-                  if (index > n.length) {
-                    index = n.length;
+                  if (index2 > n.length) {
+                    index2 = n.length;
                   }
-                  if (index) {
+                  if (index2) {
                     if (this.tagName == "DIV") {
                       var s = window.getSelection();
                       var r = document.createRange();
                       if (this.childNodes[0]) {
-                        r.setStart(this.childNodes[0], index);
+                        r.setStart(this.childNodes[0], index2);
                         s.removeAllRanges();
                         s.addRange(r);
                       }
                     } else {
-                      this.selectionStart = index;
-                      this.selectionEnd = index;
+                      this.selectionStart = index2;
+                      this.selectionEnd = index2;
                     }
                   }
                 }
@@ -3157,8 +3157,8 @@
                   var numberOfDays = date.getDate();
                   var date = new Date(year, month - 1, 0, 0, 0);
                   var firstDay = date.getDay() + 1;
-                  var index = obj2.options.startingDay || 0;
-                  firstDay = firstDay - index;
+                  var index2 = obj2.options.startingDay || 0;
+                  firstDay = firstDay - index2;
                   calendarBody.innerHTML = "";
                   var row = document.createElement("tr");
                   row.setAttribute("align", "center");
@@ -3166,14 +3166,14 @@
                   for (var i2 = 0; i2 < 7; i2++) {
                     var cell = document.createElement("td");
                     cell.classList.add("jcalendar-weekday");
-                    cell.innerHTML = obj2.options.weekdays[index].substr(0, 1);
+                    cell.innerHTML = obj2.options.weekdays[index2].substr(0, 1);
                     row.appendChild(cell);
-                    index++;
-                    if (index > 6) {
-                      index = 0;
+                    index2++;
+                    if (index2 > 6) {
+                      index2 = 0;
                     }
                   }
-                  var index = 0;
+                  var index2 = 0;
                   var d = 0;
                   for (var j = 0; j < 6; j++) {
                     var row = document.createElement("tr");
@@ -3182,7 +3182,7 @@
                     for (var i2 = 0; i2 < 7; i2++) {
                       var cell = document.createElement("td");
                       cell.classList.add("jcalendar-set-day");
-                      if (index >= firstDay && index < firstDay + numberOfDays) {
+                      if (index2 >= firstDay && index2 < firstDay + numberOfDays) {
                         d++;
                         cell.innerHTML = d;
                         if (d == day) {
@@ -3209,7 +3209,7 @@
                         }
                       }
                       row.appendChild(cell);
-                      index++;
+                      index2++;
                     }
                     calendarBody.appendChild(row);
                   }
@@ -3717,16 +3717,16 @@
               var prev = null;
               var next = null;
               var border = null;
-              const setBorder = function(index) {
+              const setBorder = function(index2) {
                 if (obj2.options.animation) {
                   setTimeout(function() {
-                    let rect = obj2.headers.children[index].getBoundingClientRect();
+                    let rect = obj2.headers.children[index2].getBoundingClientRect();
                     if (obj2.options.palette === "modern") {
                       border.style.width = rect.width - 4 + "px";
-                      border.style.left = obj2.headers.children[index].offsetLeft + 2 + "px";
+                      border.style.left = obj2.headers.children[index2].offsetLeft + 2 + "px";
                     } else {
                       border.style.width = rect.width + "px";
-                      border.style.left = obj2.headers.children[index].offsetLeft + "px";
+                      border.style.left = obj2.headers.children[index2].offsetLeft + "px";
                     }
                     if (obj2.options.position === "bottom") {
                       border.style.top = "0px";
@@ -3764,9 +3764,9 @@
                 }
               };
               obj2.setBorder = setBorder;
-              obj2.open = function(index) {
+              obj2.open = function(index2) {
                 const items = Array.from(obj2.content.children);
-                if (!obj2.content.children[index]) {
+                if (!obj2.content.children[index2]) {
                   return;
                 }
                 var previous = null;
@@ -3780,36 +3780,36 @@
                     obj2.content.children[i3].classList.remove("jtabs-selected");
                   }
                 }
-                obj2.headers.children[index].classList.add("jtabs-selected");
-                obj2.headers.children[index].setAttribute("aria-selected", "true");
-                if (obj2.content.children[index]) {
-                  obj2.content.children[index].classList.add("jtabs-selected");
+                obj2.headers.children[index2].classList.add("jtabs-selected");
+                obj2.headers.children[index2].setAttribute("aria-selected", "true");
+                if (obj2.content.children[index2]) {
+                  obj2.content.children[index2].classList.add("jtabs-selected");
                 }
-                if (previous != index && typeof obj2.options.onchange == "function") {
-                  if (obj2.content.children[index]) {
-                    obj2.options.onchange(el, obj2, index, obj2.headers.children[index], obj2.content.children[index]);
+                if (previous != index2 && typeof obj2.options.onchange == "function") {
+                  if (obj2.content.children[index2]) {
+                    obj2.options.onchange(el, obj2, index2, obj2.headers.children[index2], obj2.content.children[index2]);
                   }
                 }
                 if (obj2.options.hideHeaders == true && (obj2.headers.children.length < 3 && obj2.options.allowCreate == false)) {
                   obj2.headers.parentNode.style.display = "none";
                 } else {
                   obj2.headers.parentNode.style.display = "";
-                  var x1 = obj2.headers.children[index].offsetLeft;
-                  var x2 = x1 + obj2.headers.children[index].offsetWidth;
+                  var x1 = obj2.headers.children[index2].offsetLeft;
+                  var x2 = x1 + obj2.headers.children[index2].offsetWidth;
                   var r1 = obj2.headers.scrollLeft;
                   var r2 = r1 + obj2.headers.offsetWidth;
                   if (!(r1 <= x1 && r2 >= x2)) {
                     updateControls(x1 - 1);
                   }
-                  setBorder(index);
+                  setBorder(index2);
                 }
               };
               obj2.selectIndex = function(a) {
-                var index = Array.prototype.indexOf.call(obj2.headers.children, a);
-                if (index >= 0) {
-                  obj2.open(index);
+                var index2 = Array.prototype.indexOf.call(obj2.headers.children, a);
+                if (index2 >= 0) {
+                  obj2.open(index2);
                 }
-                return index;
+                return index2;
               };
               obj2.rename = function(i3, title) {
                 if (!title) {
@@ -3834,8 +3834,8 @@
                 setBorder(obj2.getActive());
                 return div;
               };
-              obj2.remove = function(index) {
-                return obj2.deleteElement(index);
+              obj2.remove = function(index2) {
+                return obj2.deleteElement(index2);
               };
               obj2.nextNumber = function() {
                 var num = 0;
@@ -3852,22 +3852,22 @@
                 }
                 return num;
               };
-              obj2.deleteElement = function(index) {
+              obj2.deleteElement = function(index2) {
                 let current = obj2.getActive();
-                if (!obj2.headers.children[index]) {
+                if (!obj2.headers.children[index2]) {
                   return false;
                 } else {
-                  obj2.headers.removeChild(obj2.headers.children[index]);
-                  obj2.content.removeChild(obj2.content.children[index]);
+                  obj2.headers.removeChild(obj2.headers.children[index2]);
+                  obj2.content.removeChild(obj2.content.children[index2]);
                 }
-                if (current === index) {
+                if (current === index2) {
                   obj2.open(0);
                 } else {
                   let current2 = obj2.getActive() || 0;
                   setBorder(current2);
                 }
                 if (typeof obj2.options.ondelete == "function") {
-                  obj2.options.ondelete(el, index);
+                  obj2.options.ondelete(el, index2);
                 }
               };
               obj2.appendElement = function(title, cb, openTab, position) {
@@ -4060,9 +4060,9 @@
                       var target = e.target.parentNode;
                     }
                   }
-                  var index = obj2.selectIndex(target);
+                  var index2 = obj2.selectIndex(target);
                   if (typeof obj2.options.onclick == "function") {
-                    obj2.options.onclick(el, obj2, index, obj2.headers.children[index], obj2.content.children[index]);
+                    obj2.options.onclick(el, obj2, index2, obj2.headers.children[index2], obj2.content.children[index2]);
                   }
                 });
                 obj2.headers.addEventListener("contextmenu", function(e) {
@@ -4240,8 +4240,8 @@
                   jsuitesTabs.setBorder(jsuitesTabs.getActive());
                   if (obj2.options.value) {
                     var rgb = HexToRgb(obj2.options.value);
-                    rgbInputs.forEach(function(rgbInput, index) {
-                      rgbInput.value = rgb[index];
+                    rgbInputs.forEach(function(rgbInput, index2) {
+                      rgbInput.value = rgb[index2];
                       rgbInput.dispatchEvent(new Event("input"));
                     });
                   }
@@ -4524,15 +4524,15 @@
                       contentElement: sliders()
                     }
                   ],
-                  onchange: function(element, instance, index) {
-                    if (index === 1) {
+                  onchange: function(element, instance, index2) {
+                    if (index2 === 1) {
                       resizeCanvas();
                     } else {
                       var color = slidersResult !== "" ? slidersResult : obj2.getValue();
-                      if (index === 2 && color) {
+                      if (index2 === 2 && color) {
                         var rgb = HexToRgb(color);
-                        rgbInputs.forEach(function(rgbInput, index2) {
-                          rgbInput.value = rgb[index2];
+                        rgbInputs.forEach(function(rgbInput, index3) {
+                          rgbInput.value = rgb[index3];
                           rgbInput.dispatchEvent(new Event("input"));
                         });
                       }
@@ -5476,29 +5476,29 @@
                 obj2.resetSelected = function() {
                   obj2.setValue(null);
                 };
-                obj2.selectIndex = function(index, force) {
-                  var index = parseInt(index);
-                  if (obj2.items && obj2.items[index] && (force === true || obj2.items[index].data.disabled !== true)) {
-                    obj2.setCursor(index, false);
+                obj2.selectIndex = function(index2, force) {
+                  var index2 = parseInt(index2);
+                  if (obj2.items && obj2.items[index2] && (force === true || obj2.items[index2].data.disabled !== true)) {
+                    obj2.setCursor(index2, false);
                     if (!obj2.options.multiple) {
-                      if (obj2.items[index].selected) {
+                      if (obj2.items[index2].selected) {
                         if (obj2.options.allowEmpty !== false) {
                           obj2.setValue(null);
                         }
                       } else {
-                        obj2.setValue(Value(index));
+                        obj2.setValue(Value(index2));
                       }
                       obj2.close();
                     } else {
                       var oldValue = obj2.options.value;
-                      if (obj2.items[index].selected) {
-                        obj2.items[index].element.classList.remove("jdropdown-selected");
-                        obj2.items[index].selected = false;
-                        delete obj2.value[Value(index)];
+                      if (obj2.items[index2].selected) {
+                        obj2.items[index2].element.classList.remove("jdropdown-selected");
+                        obj2.items[index2].selected = false;
+                        delete obj2.value[Value(index2)];
                       } else {
-                        obj2.items[index].element.classList.add("jdropdown-selected");
-                        obj2.items[index].selected = true;
-                        obj2.value[Value(index)] = Text(index);
+                        obj2.items[index2].element.classList.add("jdropdown-selected");
+                        obj2.items[index2].selected = true;
+                        obj2.value[Value(index2)] = Text(index2);
                       }
                       obj2.options.value = Object.keys(obj2.value).join(";");
                       if (obj2.options.autocomplete == false) {
@@ -5694,19 +5694,19 @@
                   }
                   return obj2.getValue();
                 };
-                obj2.setCursor = function(index, setPosition) {
+                obj2.setCursor = function(index2, setPosition) {
                   if (obj2.currentIndex != null) {
                     if (obj2.items && obj2.items[obj2.currentIndex]) {
                       obj2.items[obj2.currentIndex].element.classList.remove("jdropdown-cursor");
                     }
                   }
-                  if (index == void 0) {
+                  if (index2 == void 0) {
                     obj2.currentIndex = null;
                   } else {
-                    index = parseInt(index);
-                    if (obj2.items[index].element.parentNode) {
-                      obj2.items[index].element.classList.add("jdropdown-cursor");
-                      obj2.currentIndex = index;
+                    index2 = parseInt(index2);
+                    if (obj2.items[index2].element.parentNode) {
+                      obj2.items[index2].element.classList.add("jdropdown-cursor");
+                      obj2.currentIndex = index2;
                       if (setPosition !== false && obj2.items[obj2.currentIndex].element) {
                         var container2 = content.scrollTop;
                         var element = obj2.items[obj2.currentIndex].element;
@@ -5889,19 +5889,19 @@
                   var items = content.querySelectorAll(".jdropdown-item");
                   var fistItem = items[0].indexValue;
                   fistItem = obj2.items[fistItem];
-                  var index = results.indexOf(fistItem) - 1;
-                  if (index > 0) {
+                  var index2 = results.indexOf(fistItem) - 1;
+                  if (index2 > 0) {
                     var number2 = 0;
-                    while (index > 0 && results[index] && number2 < 200) {
-                      if (results[index].group) {
-                        if (!results[index].group.parentNode) {
-                          content.insertBefore(results[index].group, content.firstChild);
+                    while (index2 > 0 && results[index2] && number2 < 200) {
+                      if (results[index2].group) {
+                        if (!results[index2].group.parentNode) {
+                          content.insertBefore(results[index2].group, content.firstChild);
                         }
-                        results[index].group.lastChild.insertBefore(results[index].element, results[index].group.lastChild.firstChild);
+                        results[index2].group.lastChild.insertBefore(results[index2].element, results[index2].group.lastChild.firstChild);
                       } else {
-                        content.insertBefore(results[index].element, content.firstChild);
+                        content.insertBefore(results[index2].element, content.firstChild);
                       }
-                      index--;
+                      index2--;
                       number2++;
                     }
                     test = true;
@@ -5918,19 +5918,19 @@
                   var items = content.querySelectorAll(".jdropdown-item");
                   var lastItem = items[items.length - 1].indexValue;
                   lastItem = obj2.items[lastItem];
-                  var index = results.indexOf(lastItem) + 1;
-                  if (index < results.length) {
+                  var index2 = results.indexOf(lastItem) + 1;
+                  if (index2 < results.length) {
                     var number2 = 0;
-                    while (index < results.length && results[index] && number2 < 200) {
-                      if (results[index].group) {
-                        if (!results[index].group.parentNode) {
-                          content.appendChild(results[index].group);
+                    while (index2 < results.length && results[index2] && number2 < 200) {
+                      if (results[index2].group) {
+                        if (!results[index2].group.parentNode) {
+                          content.appendChild(results[index2].group);
                         }
-                        results[index].group.lastChild.appendChild(results[index].element);
+                        results[index2].group.lastChild.appendChild(results[index2].element);
                       } else {
-                        content.appendChild(results[index].element);
+                        content.appendChild(results[index2].element);
                       }
-                      index++;
+                      index2++;
                       number2++;
                     }
                     test = true;
@@ -6402,8 +6402,8 @@
               obj2.get = function() {
                 return el;
               };
-              obj2.setBadge = function(index, value) {
-                toolbarContent.children[index].children[1].firstChild.innerHTML = value;
+              obj2.setBadge = function(index2, value) {
+                toolbarContent.children[index2].children[1].firstChild.innerHTML = value;
               };
               obj2.destroy = function() {
                 toolbar.remove();
@@ -6946,7 +6946,7 @@
                       content: ""
                     };
                     if (snippet.innerHTML) {
-                      var index = 0;
+                      var index2 = 0;
                       data.snippet = {};
                       for (var i3 = 0; i3 < snippet.children.length; i3++) {
                         var key = snippet.children[i3].getAttribute("data-k");
@@ -8938,18 +8938,18 @@
                 }
                 return obj2;
               };
-              obj2.setValue = function(index) {
+              obj2.setValue = function(index2) {
                 for (var i2 = 0; i2 < obj2.options.number; i2++) {
-                  if (i2 < index) {
+                  if (i2 < index2) {
                     el.children[i2].classList.add("jrating-selected");
                   } else {
                     el.children[i2].classList.remove("jrating-over");
                     el.children[i2].classList.remove("jrating-selected");
                   }
                 }
-                obj2.options.value = index;
+                obj2.options.value = index2;
                 if (typeof obj2.options.onchange == "function") {
-                  obj2.options.onchange(el, index);
+                  obj2.options.onchange(el, index2);
                 }
                 if (el.value != obj2.options.value) {
                   el.value = obj2.options.value;
@@ -8969,19 +8969,19 @@
                 obj2.setOptions(options);
                 el.classList.add("jrating");
                 el.addEventListener("click", function(e) {
-                  var index = e.target.getAttribute("data-index");
-                  if (index != void 0) {
-                    if (index == obj2.options.value) {
+                  var index2 = e.target.getAttribute("data-index");
+                  if (index2 != void 0) {
+                    if (index2 == obj2.options.value) {
                       obj2.setValue(0);
                     } else {
-                      obj2.setValue(index);
+                      obj2.setValue(index2);
                     }
                   }
                 });
                 el.addEventListener("mouseover", function(e) {
-                  var index = e.target.getAttribute("data-index");
+                  var index2 = e.target.getAttribute("data-index");
                   for (var i2 = 0; i2 < obj2.options.number; i2++) {
-                    if (i2 < index) {
+                    if (i2 < index2) {
                       el.children[i2].classList.add("jrating-over");
                     } else {
                       el.children[i2].classList.remove("jrating-over");
@@ -9011,7 +9011,7 @@
               if (el.search) {
                 return el.search;
               }
-              var index = null;
+              var index2 = null;
               var select = function(e) {
                 if (e.target.classList.contains("jsearch_item")) {
                   var element = e.target;
@@ -9076,9 +9076,9 @@
                 if (str != obj2.terms) {
                   obj2.terms = str;
                   if (obj2.options.forceSelect) {
-                    index = 0;
+                    index2 = 0;
                   } else {
-                    index = null;
+                    index2 = null;
                   }
                   if (Array.isArray(obj2.options.data)) {
                     var test = function(o) {
@@ -9160,33 +9160,33 @@
               obj2.keydown = function(e) {
                 if (obj2.isOpened()) {
                   if (e.key == "Enter") {
-                    if (index !== null && container.children[index]) {
-                      obj2.selectIndex(container.children[index]);
+                    if (index2 !== null && container.children[index2]) {
+                      obj2.selectIndex(container.children[index2]);
                       e.preventDefault();
                     } else {
                       obj2.close();
                     }
                   } else if (e.key === "ArrowUp") {
-                    if (index !== null && container.children[0]) {
-                      container.children[index].classList.remove("selected");
-                      if (!obj2.options.forceSelect && index === 0) {
-                        index = null;
+                    if (index2 !== null && container.children[0]) {
+                      container.children[index2].classList.remove("selected");
+                      if (!obj2.options.forceSelect && index2 === 0) {
+                        index2 = null;
                       } else {
-                        index = Math.max(0, index - 1);
-                        container.children[index].classList.add("selected");
+                        index2 = Math.max(0, index2 - 1);
+                        container.children[index2].classList.add("selected");
                       }
                     }
                     e.preventDefault();
                   } else if (e.key === "ArrowDown") {
-                    if (index == null) {
-                      index = -1;
+                    if (index2 == null) {
+                      index2 = -1;
                     } else {
-                      container.children[index].classList.remove("selected");
+                      container.children[index2].classList.remove("selected");
                     }
-                    if (index < 9 && container.children[index + 1]) {
-                      index++;
+                    if (index2 < 9 && container.children[index2 + 1]) {
+                      index2++;
                     }
-                    container.children[index].classList.add("selected");
+                    container.children[index2].classList.add("selected");
                     e.preventDefault();
                   }
                 }
@@ -9266,8 +9266,8 @@
                     obj2.options.items.push(el.children[i2]);
                     var item = document.createElement("div");
                     item.onclick = function() {
-                      var index = Array.prototype.slice.call(counter.children).indexOf(this);
-                      obj2.show(obj2.currentImage = obj2.options.items[index]);
+                      var index2 = Array.prototype.slice.call(counter.children).indexOf(this);
+                      obj2.show(obj2.currentImage = obj2.options.items[index2]);
                     };
                     counter.appendChild(item);
                   }
@@ -9284,14 +9284,14 @@
                 controls.appendChild(caption);
                 controls.appendChild(close);
               }
-              obj2.updateCounter = function(index) {
+              obj2.updateCounter = function(index2) {
                 for (var i3 = 0; i3 < counter.children.length; i3++) {
                   if (counter.children[i3].classList.contains("jslider-counter-focus")) {
                     counter.children[i3].classList.remove("jslider-counter-focus");
                     break;
                   }
                 }
-                counter.children[index].classList.add("jslider-counter-focus");
+                counter.children[index2].classList.add("jslider-counter-focus");
               };
               obj2.show = function(target) {
                 if (!target) {
@@ -9301,8 +9301,8 @@
                 el.classList.remove("jslider-grid");
                 el.appendChild(controls);
                 el.appendChild(counter);
-                var index = obj2.options.items.indexOf(target);
-                obj2.updateCounter(index);
+                var index2 = obj2.options.items.indexOf(target);
+                obj2.updateCounter(index2);
                 for (var i3 = 0; i3 < el.children.length; i3++) {
                   el.children[i3].style.display = "";
                 }
@@ -9545,12 +9545,12 @@
                 }
                 return data;
               };
-              obj2.getValue = function(index) {
+              obj2.getValue = function(index2) {
                 var value = null;
-                if (index != null) {
-                  value = el.children[index].getAttribute("data-value");
+                if (index2 != null) {
+                  value = el.children[index2].getAttribute("data-value");
                   if (!value) {
-                    value = el.children[index].innerText.replace("\n", "");
+                    value = el.children[index2].innerText.replace("\n", "");
                   }
                 } else {
                   var data = [];
@@ -10041,9 +10041,9 @@
               });
               el.addEventListener("keydown", function(e) {
                 if (current && e.which == 46) {
-                  var index = Array.prototype.indexOf.call(el.children, current);
-                  if (index >= 0) {
-                    el.content.splice(index, 1);
+                  var index2 = Array.prototype.indexOf.call(el.children, current);
+                  if (index2 >= 0) {
+                    el.content.splice(index2, 1);
                     current.remove();
                     current = null;
                   }
@@ -18525,6 +18525,31 @@
       }
     }
     AST2.Array = Array2;
+    class Index {
+      constructor(target, idx) {
+        this.target = target;
+        this.idx = idx;
+      }
+      evaluate(env) {
+        const target = this.target.evaluate(env);
+        const idx = this.idx.evaluate(env);
+        if (!(target instanceof Array2)) {
+          throw new Error(`Cannot index into non-array value`);
+        }
+        if (!(idx instanceof Num)) {
+          throw new Error(`Array index must be a number`);
+        }
+        const i2 = idx.value;
+        if (i2 < 0 || i2 >= target.value.length) {
+          throw new Error(`Index ${i2} out of bounds (length ${target.value.length})`);
+        }
+        return target.value[i2];
+      }
+      toString() {
+        return `${this.target}[${this.idx}]`;
+      }
+    }
+    AST2.Index = Index;
     class Gap {
       evaluate(_) {
         return this;
@@ -18779,6 +18804,24 @@
         this.args = args2;
       }
       evaluate(env) {
+        if (this.target instanceof Var && this.target.name === "fold") {
+          if (this.args.length !== 3) {
+            throw new Error("fold requires 3 arguments");
+          }
+          const arr2 = this.args[0].evaluate(env);
+          if (!(arr2 instanceof Array2)) {
+            throw new Error("fold first argument must be an array");
+          }
+          let acc = this.args[1].evaluate(env);
+          const func2 = this.args[2].evaluate(env);
+          if (!(func2 instanceof Closure)) {
+            throw new Error("fold third argument must be a function");
+          }
+          for (const element of arr2.value) {
+            acc = new Call(func2, [acc, element]).evaluate(env);
+          }
+          return acc;
+        }
         const func = this.target.evaluate(env);
         if (!(func instanceof Closure)) {
           throw new Error(`${this.target.toString()} is not a function`);
@@ -18878,6 +18921,11 @@
       ...tail.map((t) => t[1][1])
     ])
   );
+  var index = Primitives.appfun(
+    Primitives.between(Primitives.char("["))(Primitives.char("]"))(
+      Primitives.seq(ws)(expr)
+    )
+  )(([_, e]) => [e]);
   var argWithComma = Primitives.appfun(
     Primitives.seq(Primitives.char(","))(Primitives.seq(ws)(expr))
   )((value) => {
@@ -18930,28 +18978,38 @@
     Primitives.seq(Primitives.char("("))(Primitives.seq(ws)(Primitives.char(")")))
   )((_) => []);
   var argsOrEmpty = Primitives.choice(args)(emptyArgs);
-  var varOrCall = Primitives.appfun(
-    Primitives.seq(identifierRaw)(
-      Primitives.seq(ws)(Primitives.many(argsOrEmpty))
-      // P.many safely returns [] if no parens exist
+  var callSuffix = Primitives.appfun(argsOrEmpty)(
+    (args2) => ({ kind: "call", args: args2 })
+  );
+  var indexSuffix = Primitives.appfun(
+    Primitives.between(Primitives.char("["))(Primitives.char("]"))(
+      Primitives.seq(ws)(expr)
     )
-  )(([name, [_, argLists]]) => {
-    if (argLists.length > 0) {
-      return new AST.Call(new AST.Var(name), argLists[0]);
-    }
-    return new AST.Var(name);
-  });
+  )(([_, e]) => ({ kind: "index", idx: e }));
+  var postfixSuffix = Primitives.choice(callSuffix)(indexSuffix);
   var atom = Primitives.choice(lambda)(
     Primitives.choice(number)(
       Primitives.choice(string)(
-        Primitives.choice(varOrCall)(
+        Primitives.choice(variable)(
           Primitives.choice(paren)(arr)
         )
       )
     )
   );
+  var postfix = Primitives.appfun(
+    Primitives.seq(atom)(Primitives.many(postfixSuffix))
+  )(
+    ([base, suffixes]) => suffixes.reduce((acc, suffix) => {
+      if (suffix.kind === "call") {
+        return new AST.Call(acc, suffix.args);
+      } else {
+        return new AST.Index(acc, suffix.idx);
+      }
+    }, base)
+  );
   exprImpl.contents = Primitives.appfun(
-    Primitives.seq(atom)(Primitives.many(Primitives.seq(operator)(atom)))
+    Primitives.seq(postfix)(Primitives.many(Primitives.seq(operator)(postfix)))
+    // <-- postfix here
   )(
     ([head, rest]) => rest.reduce(
       (acc, [op, right2]) => AST.combining(acc, op, right2),
@@ -19042,13 +19100,17 @@
       const parsed = result.next();
       if (parsed.done && parsed.value.tag === "success") {
         const env = {};
+        const astEnv = {};
         const astList = parsed.value.result;
         const outputs = [];
         for (const line of astList) {
           const val = line.evaluate(env);
           outputs.push(val);
+          if (line.key && line.valueExpr) {
+            astEnv[line.key] = line.valueExpr;
+          }
         }
-        return { ast: astList, env, output: outputs };
+        return { ast: astList, env, astEnv, output: outputs };
       }
       return { error: "Parse failed", details: parsed };
     } catch (e) {

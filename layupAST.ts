@@ -113,6 +113,33 @@ export module AST {
         }
     }
 
+    export class Index implements AST.Expr {
+        constructor(public target: AST.Expr, public idx: AST.Expr) {}
+
+        evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            const target = this.target.evaluate(env);
+            const idx = this.idx.evaluate(env);
+
+            if (!(target instanceof Array)) {
+            throw new Error(`Cannot index into non-array value`);
+            }
+            if (!(idx instanceof Num)) {
+            throw new Error(`Array index must be a number`);
+            }
+
+            const i = idx.value;
+            if (i < 0 || i >= target.value.length) {
+            throw new Error(`Index ${i} out of bounds (length ${target.value.length})`);
+            }
+
+            return target.value[i];
+        }
+
+        toString() {
+            return `${this.target}[${this.idx}]`;
+        }
+    }
+
     export class Gap implements AST.Expr {
         evaluate(_: Record<string, AST.Expr>): AST.Expr {
             return this;
@@ -414,6 +441,36 @@ export module AST {
         ) {}
 
         evaluate(env: Record<string, AST.Expr>): AST.Expr {
+            // Built-in fold
+            if (this.target instanceof Var && this.target.name === "fold") {
+
+                if (this.args.length !== 3) {
+                    throw new Error("fold requires 3 arguments");
+                }
+
+                // Evaluate array (works for variables like x)
+                const arr = this.args[0].evaluate(env);
+
+                if (!(arr instanceof Array)) {
+                    throw new Error("fold first argument must be an array");
+                }
+
+                // Evaluate initial accumulator
+                let acc = this.args[1].evaluate(env);
+
+                // Evaluate function to get closure
+                const func = this.args[2].evaluate(env);
+
+                if (!(func instanceof Closure)) {
+                    throw new Error("fold third argument must be a function");
+                }
+
+                for (const element of arr.value) {
+                    acc = new Call(func, [acc, element]).evaluate(env);
+                }
+
+                return acc;
+            }
             // 1. Evaluate the target expression to get the closure
             const func = this.target.evaluate(env);
             if (!(func instanceof Closure)) {

@@ -147,9 +147,10 @@
 
                 csv = result.output;
                 window.lastAST = result.ast;
+                window.lastAstEnv = result.astEnv;
 
                 Object.keys(symbolTable).forEach(key => delete symbolTable[key]);
-                const cells = parserOutputToSheet(result.output, result.ast);
+                const cells = parserOutputToSheet(result.output, result.ast, result.astEnv);
 
                 if (!sheet) {
                     sheet = jspreadsheet(document.getElementById("spreadsheet"), {
@@ -204,7 +205,7 @@
             return `${letter}${row + 1}`;
         }
 
-        function exprToFormula(expr, symbolTable, rowOffset, colOffset) {
+        function exprToFormula(expr, symbolTable, rowOffset, colOffset, astEnv) {
             rowOffset = rowOffset || 0;
             colOffset = colOffset || 0;
 
@@ -229,19 +230,53 @@
                 var rowIndex = parseInt(match[2]) - 1;
 
                 if (sym.direction === "right") {
-                    colIndex += colOffset;
+                    colIndex += colOffset || rowOffset;
                 } else {
-                    rowIndex += rowOffset;
+                    rowIndex += rowOffset || colOffset;
                 }
 
                 var newCol = String.fromCharCode(65 + colIndex);
                 return newCol + (rowIndex + 1);
             }
 
+            // Array index
+            if (expr instanceof AST.Index) {
+                const idx = expr.idx;
+                const target = expr.target;
+
+                // Must be a constant index for spreadsheet translation
+                if (!(typeof idx.value === 'number')) {
+                    throw new Error("Array index must be a number literal in formula context");
+                }
+
+                const i = idx.value;
+
+                if (target instanceof AST.Var) {
+                    const sym = symbolTable[target.name];
+                    if (!sym) return "#NAME?";
+
+                    const match = sym.addr.match(/([A-Z]+)([0-9]+)/);
+                    if (!match) return sym.addr;
+
+                    const colIndex = colToIndex(match[1]);
+                    const rowIndex = parseInt(match[2]) - 1;
+
+                    if (sym.direction === "right") {
+                        // Array spreads right, offset column by i
+                        return String.fromCharCode(65 + colIndex + i) + (rowIndex + 1);
+                    } else {
+                        // Array spreads down, offset row by i
+                        return String.fromCharCode(65 + colIndex) + (rowIndex + 1 + i); // Cleaned up offsets
+                    }
+                }
+
+                throw new Error("Array indexing only supported on named variables");
+            }
+
             // Binary expression
             if ("left" in expr && "right" in expr) {
-                var left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset);
-                var right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset);
+                var left = exprToFormula(expr.left, symbolTable, rowOffset, colOffset, astEnv);
+                var right = exprToFormula(expr.right, symbolTable, rowOffset, colOffset, astEnv);
                 var op = expr.op || "?";
 
                 if (Array.isArray(left) && Array.isArray(right)) {
@@ -258,6 +293,26 @@
 
             // Function call
             if (expr instanceof AST.Call) {
+                if (expr.target instanceof AST.Var && expr.target.name === "fold") {
+                    const arrArg = expr.args[0];
+                    const init = expr.args[1];
+                    const fn = expr.args[2];
+
+                    let arrAST = arrArg instanceof AST.Array ? arrArg
+                            : arrArg instanceof AST.Var   ? astEnv?.[arrArg.name]
+                            : null;
+
+                    if (!(arrAST instanceof AST.Array)) {
+                        throw new Error("fold: could not resolve argument to an array");
+                    }
+
+                    let acc = init;
+                    for (const element of arrAST.value) {
+                        acc = new AST.Call(fn, [acc, element]);
+                    }
+                    return exprToFormula(acc, symbolTable, rowOffset, colOffset, astEnv);
+                }
+                
                 var funcTemplate = null;
 
                 if (expr.target instanceof AST.Var) {
@@ -294,7 +349,7 @@
                 };
 
                 var substitutedBody = substitute(funcTemplate.body);
-                return exprToFormula(substitutedBody, symbolTable, rowOffset, colOffset);
+                return exprToFormula(substitutedBody, symbolTable, rowOffset, colOffset, astEnv);
             }
 
             // Lambda literal
@@ -305,7 +360,7 @@
             throw new Error("Unsupported expression type: " + JSON.stringify(expr));
         }
 
-        function parserOutputToSheet(outputValues, ast) {
+        function parserOutputToSheet(outputValues, ast, astEnv) {
             const cells = {}; 
             const unwrap = (v) => {
                 if (v === null || v === undefined) return v;
@@ -356,8 +411,17 @@
 
                 // Point to head cell
                 if (key) {
+                    let headRow = startRow;
+                    let headCol = startCol + 1; // Default for scalars & rightward arrays
+
+                    // Check if it's a downward-expanding array
+                    if (Array.isArray(unwrap(outputValues[index])) && (!node.direction || node.direction !== "right")) {
+                        headRow = startRow + 1;
+                        headCol = startCol;
+                    }
+
                     symbolTable[key] = {
-                        addr: cellAddress(startRow, startCol + 1),
+                        addr: cellAddress(headRow, headCol),
                         direction: node.direction || "down"
                     };
                 }
@@ -387,10 +451,10 @@
                         let formula;
                         if (node.valueExpr && Array.isArray(node.valueExpr.value) && node.valueExpr.value[i]) {
                             // Literal array
-                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0, 0);
+                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0, 0, astEnv);
                         } else {
-                            // Derived array - pass column offset instead of row offset
-                            formula = exprToFormula(node.valueExpr, symbolTable, 0, i);
+                            // Derived array - pass row offset instead of column offset
+                            formula = exprToFormula(node.valueExpr, symbolTable, i, 0, astEnv);
                         }
 
                         cells[`${startRow},${currentCol}`] = "=" + formula;
@@ -408,10 +472,10 @@
                         let formula;
                         if (node.valueExpr && Array.isArray(node.valueExpr.value) && node.valueExpr.value[i]) {
                             // Literal array
-                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0, 0);
+                            formula = exprToFormula(node.valueExpr.value[i], symbolTable, 0, 0, astEnv);
                         } else {
-                            // Derived array - pass column offset instead of row offset
-                            formula = exprToFormula(node.valueExpr, symbolTable, i, 0);
+                            // Derived array - pass row offset instead of column offset
+                            formula = exprToFormula(node.valueExpr, symbolTable, i, 0, astEnv);
                         }
 
                         cells[`${currentRow},${startCol}`] = "=" + formula;
@@ -423,7 +487,7 @@
                 } else {
                     // Scalar Case
                     cells[`${startRow},${startCol}`] = key;
-                    const formula = exprToFormula(node.valueExpr, symbolTable, 0);
+                    const formula = exprToFormula(node.valueExpr, symbolTable, 0, 0, astEnv);
                     cells[`${startRow},${startCol + 1}`] = "=" + formula;
                     
                     if (!node.location && !(key && startRow < cursorRow)) {
@@ -478,12 +542,14 @@
         });
 
         downloadCSVButton.addEventListener("click", () => {
+            Object.keys(symbolTable).forEach(key => delete symbolTable[key]);
+            Object.keys(functionTable).forEach(key => delete functionTable[key])
             if (!csv || !window.lastAST) {
                 alert("Nothing to export.");
                 return;
             }
 
-            const cells = parserOutputToSheet(csv, window.lastAST);
+            const cells = parserOutputToSheet(csv, window.lastAST, window.lastAstEnv);
             const grid = cellsToCSV(cells);
 
             const csvContent = grid

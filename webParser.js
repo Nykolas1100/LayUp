@@ -9,20 +9,20 @@ export function parseCode(code) {
         const stream = new CharUtil.CharStream(code);
         const result = grammar(stream);
         const parsed = result.next();
-
         if (parsed.done && parsed.value.tag === "success") {
             const env = {};
+            const astEnv = {};
             const astList = parsed.value.result;
-
             const outputs = [];
             for (const line of astList) {
                 const val = line.evaluate(env);
                 outputs.push(val);
+                if (line.key && line.valueExpr) {
+                    astEnv[line.key] = line.valueExpr;
+                }
             }
-
-            return { ast: astList, env, output: outputs };
+            return { ast: astList, env, astEnv, output: outputs };
         }
-
         return { error: "Parse failed", details: parsed };
     } catch (e) {
         return { error: e.message, details: e.stack };
