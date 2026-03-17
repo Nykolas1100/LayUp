@@ -53,10 +53,37 @@ const identifier =
 // Parse '='
 const assign = P.appfun(P.seq(P.char('='))(ws))(([_eq, _ws]) => null);
 
-// Parse atoms
+const sign = P.appfun(P.choices(P.char('-'), P.str("")))((sign) => sign);
+
+const float = P.appfun(
+  P.seq(sign)(
+    P.seq(P.integer)(
+      P.seq(P.char('.'))(P.integer)
+    )
+  )
+)(
+  ([sign, [left, [point, right]]]: [string, [string, [string, string]]]) => 
+    sign + left + point + right
+);
+
+const signedInt = P.appfun(
+  P.seq(sign)(P.integer)
+)(
+  ([sign, num]: [string, string]) => sign + num
+);
+
 const number: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
-  P.seq(P.integer)(ws)
-)(([n, _ws]) => new AST.Num(n));
+  P.seq(
+    P.choices(float, signedInt)
+  )(ws)
+)(
+  ([n, _ws]) => new AST.Num(parseFloat(n)) 
+);
+
+// Parse atoms
+// const number: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
+//   P.seq(P.choices(P.integer,))(ws)
+// )(([n, _ws]) => new AST.Num(n));
 const variable: P.IParser<AST.Expr> = P.appfun<any, AST.Expr>(
   P.seq(identifierRaw)(ws)
 )(([name, _]) => new AST.Var(name));

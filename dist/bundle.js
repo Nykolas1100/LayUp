@@ -18879,9 +18879,28 @@
     Primitives.seq(identifierRaw)(ws)
   )(([name, _]) => name);
   var assign = Primitives.appfun(Primitives.seq(Primitives.char("="))(ws))(([_eq, _ws]) => null);
+  var sign = Primitives.appfun(Primitives.choices(Primitives.char("-"), Primitives.str("")))((sign2) => sign2);
+  var float = Primitives.appfun(
+    Primitives.seq(sign)(
+      Primitives.seq(Primitives.integer)(
+        Primitives.seq(Primitives.char("."))(Primitives.integer)
+      )
+    )
+  )(
+    ([sign2, [left2, [point, right2]]]) => sign2 + left2 + point + right2
+  );
+  var signedInt = Primitives.appfun(
+    Primitives.seq(sign)(Primitives.integer)
+  )(
+    ([sign2, num]) => sign2 + num
+  );
   var number = Primitives.appfun(
-    Primitives.seq(Primitives.integer)(ws)
-  )(([n, _ws]) => new AST.Num(n));
+    Primitives.seq(
+      Primitives.choices(float, signedInt)
+    )(ws)
+  )(
+    ([n, _ws]) => new AST.Num(parseFloat(n))
+  );
   var variable = Primitives.appfun(
     Primitives.seq(identifierRaw)(ws)
   )(([name, _]) => new AST.Var(name));
